@@ -60,7 +60,7 @@ class BaseField:
     
 class CharField(BaseField):
     
-    def parse(self, xml, namespace, fetch_element_name=False):
+    def parse(self, xml, namespace):
         return self._fetch_by_xpath(xml, namespace)
         
 
@@ -143,14 +143,11 @@ class Collection(BaseField):
         matches = xpath.find_all(xml, self.xpath, namespace)
 
         if not BaseField in self.field_type.__bases__:
+            
             results = [self.field_type(xml=match) for match in matches]
         else:
             field = self.field_type(xpath = '.')
-            results = [field.parse(match, namespace) for match in matches]
-        # this is a hack to get the elemen
-        if self.element_name:
-            element_names = [etree.XPath("local-name(%s[text()='%s'])" % (self.get_xpath(namespace), value ))(xml) for value in results]
-            results = element_names
+            results = [field.parse(xpath.domify(match), namespace) for match in matches]
         if self.order_by:
             results.sort(lambda a,b : cmp(getattr(a, self.order_by), getattr(b, self.order_by)))
         return results
