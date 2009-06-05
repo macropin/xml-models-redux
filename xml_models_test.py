@@ -31,6 +31,8 @@ or implied, of the FreeBSD Project.
 import unittest
 from xml_models import *
 import xpath_twister as xpath
+from mock import patch_object
+import rest_client
 
 class XmlModelsTest(unittest.TestCase):
     
@@ -161,6 +163,21 @@ class XmlModelsTest(unittest.TestCase):
         my_model.muppet_names.append('Fozzie')
         self.assertTrue('Fozzie' in my_model.muppet_names)
         self.assertTrue('Gonzo' in my_model.muppet_names)
+    
+    def test_manager_noregisteredfindererror_raised_when_filter_on_non_existent_field(self):
+        try:
+            MyModel.objects.filter(foo="bar").count()
+            self.fail("expected NoRegisteredFinderError")
+        except NoRegisteredFinderError, e:
+            self.assertTrue("foo" in e)
+
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
+        mock_get.return_value = "<elems><root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root></elems>"
+        count = MyModel.objects.filter(bar="baz").count()
+        self.assertEquals(1, count)
+        self.assertTrue(mock_get.called)
+
 
 if __name__=='__main__':
     unittest.main()

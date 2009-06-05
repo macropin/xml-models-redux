@@ -30,6 +30,7 @@ or implied, of the FreeBSD Project.
 
 import unittest, re, datetime, time
 import xpath_twister as xpath
+import rest_client
 
 """ Contributors: Chris Tarttelin and Cam McHugh
     Point2 Technologies Ltd 
@@ -160,11 +161,50 @@ class ModelBase(type):
         xml_fields = [field_name for field_name in attrs.keys() if isinstance(attrs[field_name], BaseField)]
         for field_name in xml_fields:
             setattr(cls, field_name, cls._get_xpath(field_name, attrs[field_name]))
+        if attrs.has_key("finders"):
+            setattr(cls, "objects", XmlModelManager(cls, attrs["finders"]))
     
     def _get_xpath(cls, field_name, field_impl):
         return property(fget=lambda cls: cls._parse_field(field_impl), fset=lambda cls, value : cls._set_value(field_impl, value))
         
+class XmlModelManager(object):
+    
+    def __init__(self, model, finders):
+        self.model = model
+        self.finders = {}
+        for key in finders.keys():
+            print dir(key[0])
+            field_names = [field.__name__ for field in key]
+            self.finders[tuple(field_names)] = finders[key]
+        self.query = XmlModelQuery()
+    
+    def filter(self, **kw):        
+        return XmlModelQuery(self).filter(**kw)
+        
+    def count(self):
+        raise NoRegisteredFinderError("foo")
+        
+class XmlModelQuery(object):
+    
+    def __init__(self, manager):
+        self.manager = manager
+        self.args = {}
+        
+    def filter(self, **kw):
+        for key in kw.keys():
+            self.args[key] = kw[key]
 
+    def count(self):
+        return self.model(rest_client.Client().GET(self._find_query_path()).content) 
+    
+    def _find_query_path(self):
+        key_tuple = tuple(self.args.keys())
+        try:
+            path = self.manager.finders[key_tuple]
+        except KeyError:
+            raise NoRegisteredFinderError(str(key_tuple))
+        return path
+        
 class Model:
     __metaclass__ = ModelBase
 
@@ -211,8 +251,14 @@ class MyModel(Model):
     muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
     muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
     
+    finders = { 
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
+    
 class NsModel(Model):
     namespace='urn:test:namespace'
     name=CharField(xpath='/root/name')
     age=IntField(xpath='/root/age')
-    
+
+class NoRegisteredFinderError(Exception):
+    pass
