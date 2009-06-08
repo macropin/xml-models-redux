@@ -169,12 +169,14 @@ class XmlModelsTest(unittest.TestCase):
             MyModel.objects.filter(foo="bar").count()
             self.fail("expected NoRegisteredFinderError")
         except NoRegisteredFinderError, e:
-            self.assertTrue("foo" in e)
+            self.assertTrue("foo" in str(e))
 
     @patch_object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
-        mock_get.return_value = "<elems><root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root></elems>"
-        count = MyModel.objects.filter(bar="baz").count()
+        class t:
+            content = "<elems><root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root></elems>"
+        mock_get.return_value = t()
+        count = MyModel.objects.filter(muppet_name="baz").count()
         self.assertEquals(1, count)
         self.assertTrue(mock_get.called)
 

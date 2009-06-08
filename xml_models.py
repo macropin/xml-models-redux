@@ -35,6 +35,7 @@ uses pyxml_xpath.  Better performance will be gained by installing lxml."""
 
 import unittest, re, datetime, time
 import xpath_twister as xpath
+import rest_client
 
 
 class NoRegisteredFinderError(Exception):
@@ -173,6 +174,7 @@ class ModelBase(type):
         xml_fields = [field_name for field_name in attrs.keys() if isinstance(attrs[field_name], BaseField)]
         for field_name in xml_fields:
             setattr(cls, field_name, cls._get_xpath(field_name, attrs[field_name]))
+            attrs[field_name]._name = field_name
         if attrs.has_key("finders"):
             setattr(cls, "objects", XmlModelManager(cls, attrs["finders"]))
     
@@ -185,29 +187,36 @@ class XmlModelManager(object):
         self.model = model
         self.finders = {}
         for key in finders.keys():
-            print dir(key[0])
-            field_names = [field.__name__ for field in key]
+            field_names = [field._name for field in key]
             self.finders[tuple(field_names)] = finders[key]
-        self.query = XmlModelQuery()
 
     def filter(self, **kw):        
-        return XmlModelQuery(self).filter(**kw)
+        return XmlModelQuery(self, self.model).filter(**kw)
 
     def count(self):
         raise NoRegisteredFinderError("foo")
 
 class XmlModelQuery(object):
 
-    def __init__(self, manager):
+    def __init__(self, manager, model):
         self.manager = manager
+        self.model = model
         self.args = {}
 
     def filter(self, **kw):
         for key in kw.keys():
             self.args[key] = kw[key]
+        return self
 
     def count(self):
-        return self.model(rest_client.Client().GET(self._find_query_path()).content) 
+        response = rest_client.Client("").GET(self._find_query_path()) 
+        count = 0
+        for x in self._fragments(response.content):
+            count += 1
+        return count
+        
+    def _fragments(self, xml):
+        return ["split elems"]
 
     def _find_query_path(self):
         key_tuple = tuple(self.args.keys())
