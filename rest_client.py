@@ -1,3 +1,5 @@
+
+
 """
 The FreeBSD Copyright
 
@@ -28,17 +30,19 @@ authors and should not be interpreted as representing official policies, either 
 or implied, of the FreeBSD Project.
 """
 
+__doc__="A REST client, supporting GET, PUT, POST and DELETE"
+
 import urllib2
 
-opener = urllib2.OpenerDirector()
-opener.add_handler(urllib2.HTTPHandler())
-
-
-""" Contributors: Chris Tarttelin and Cam McHugh
-    Point2 Technologies Ltd 
-"""
-
 class Client(object):
+    """ 
+    A new Client takes a base_url e.g. http://www.mysite.com:8765/rest and 
+    optionally a tuple containing username and password for use as basic 
+    auth.  
+    """
+    def __init__(self, base_url, credentials=(None, None)):
+        self.base_url = base_url or ""
+        self._install_creds(base_url, credentials)
     
     def GET(self, url, headers={}):
         return self._make_request(url, 'GET', None, headers)
@@ -52,24 +56,43 @@ class Client(object):
     def DELETE(self, url, payload=None, headers={}):
             return self._make_request(url, 'DELETE', payload, headers)
         
+    def _install_creds(self, base_url, credentials):
+        if credentials[0] and credentials[1]:
+            user, passwd = credentials
+            pwm = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            pwm.add_password(None, base_url, user, passwd)
+            handler = urllib2.HTTPBasicAuthHandler(pwm)
+            handler.set_parent(urllib2.HTTPHandler())
+            self.opener = handler.build_opener()
+        else:
+            self.opener = urllib2.OpenerDirector()
+            self.opener.add_handler(urllib2.HTTPHandler())
+    
     def _make_request(self, url, method, payload, headers):
-        request = urllib2.Request(url, headers=headers, data=payload)
+        request = urllib2.Request(self.base_url + url, headers=headers, data=payload)
         request.get_method = lambda: method
-        response = opener.open(request)
+        response = self.opener.open(request)
         response_code = getattr(response, 'code', -1)
         if response_code == -1:
             raise urllib2.HTTPError(url, response_code, "Error accessing external resource", None, None)
-        return Response(url, response_code, response.headers, response)
+        return Response(base_url + url, response_code, response.headers, response)
         
 class Response(object):
+    """Encapsulates the response from a client GET/PUT/POST/DELETE call"""
     
     def __init__(self, url, response_code, headers, content):
-        self.url = url
-        self.response_code = response_code
-        self.headers = dict(headers)
-        self.content = content.read()
+        self._url = url
+        self._response_code = response_code
+        self._headers = dict(headers)
+        self._content = content.read()
+        
+    url = property(fget=lambda : self._url, doc="The url this response was returned from")
+    response_code = property(fget=lambda : self._response_code, doc="The response code returned from the call")
+    headers = property(fget=lambda : self._headers, doc="The headers returned in the response")
+    content = property(fget=lambda : self._content, doc="The response body, as a string, returned from the call")
         
     def expect(self, response_code):
+        "If the actual response code does not match the expected response code, raises a HTTPError"
         if self.response_code != response_code:
             raise urllib2.HTTPError(self.url, self.response_code, "Expected response code: %s, but was %s" % (response_code, self.response_code), None, None)
         
@@ -79,4 +102,5 @@ class Response(object):
         raise AttributeError
     
     def __str__(self):
+        "returns the content of the response as a string"
         return self.content

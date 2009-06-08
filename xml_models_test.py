@@ -31,8 +31,8 @@ or implied, of the FreeBSD Project.
 import unittest
 from xml_models import *
 import xpath_twister as xpath
-from mock import patch_object
 import rest_client
+from mock import patch_object
 
 class XmlModelsTest(unittest.TestCase):
     
@@ -163,7 +163,7 @@ class XmlModelsTest(unittest.TestCase):
         my_model.muppet_names.append('Fozzie')
         self.assertTrue('Fozzie' in my_model.muppet_names)
         self.assertTrue('Gonzo' in my_model.muppet_names)
-    
+
     def test_manager_noregisteredfindererror_raised_when_filter_on_non_existent_field(self):
         try:
             MyModel.objects.filter(foo="bar").count()
@@ -177,6 +177,33 @@ class XmlModelsTest(unittest.TestCase):
         count = MyModel.objects.filter(bar="baz").count()
         self.assertEquals(1, count)
         self.assertTrue(mock_get.called)
+
+class Address(Model):
+    number = IntField(xpath='/address/number')
+    street = CharField(xpath='/address/street')
+    city = CharField(xpath='/address/city')
+    foobars = Collection(CharField, xpath='/address/foobar')
+
+    finders = { (number,): "/number/%s",
+                (number, street): "/number/%s/street/%s",
+                (city,): "/place/%s"
+              }
+
+class MyModel(Model):
+    muppet_name = CharField(xpath='/root/kiddie/value')
+    muppet_type = CharField(xpath='/root/kiddie/type', default='frog')
+    muppet_names = Collection(CharField, xpath='/root/kiddie/value')
+    muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
+    muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
+
+    finders = { 
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
+
+class NsModel(Model):
+    namespace='urn:test:namespace'
+    name=CharField(xpath='/root/name')
+    age=IntField(xpath='/root/age')
 
 
 if __name__=='__main__':

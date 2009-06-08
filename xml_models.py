@@ -28,16 +28,21 @@ authors and should not be interpreted as representing official policies, either 
 or implied, of the FreeBSD Project.
 """
 
+__doc__="""Based on Django Database backed models, provides a means for mapping models 
+to xml, and specifying finders that map to a remote REST service.  For parsing XML
+XPath expressions, xml_models attempts to use lxml if it is available.  If not, it 
+uses pyxml_xpath.  Better performance will be gained by installing lxml."""
+
 import unittest, re, datetime, time
 import xpath_twister as xpath
-import rest_client
 
-""" Contributors: Chris Tarttelin and Cam McHugh
-    Point2 Technologies Ltd 
-"""
+
+class NoRegisteredFinderError(Exception):
+    pass
 
 class BaseField:
-    
+    """All fields must specify an xpath as a keyword arg in their constructor.  Fields may optionally specify a 
+    default value using the default keyword arg."""
     def __init__(self, **kw):
         if not kw.has_key('xpath'):
             raise Exception('No XPath supplied for xml field')
@@ -60,13 +65,13 @@ class BaseField:
             return self.__cached_value
     
 class CharField(BaseField):
-    
+    """Returns the single value found by the xpath expression, as a string"""
     def parse(self, xml, namespace):
         return self._fetch_by_xpath(xml, namespace)
         
 
 class IntField(BaseField):
-        
+    """Returns the single value found by the xpath expression, as an int"""
     def parse(self, xml, namespace):
         value = self._fetch_by_xpath(xml, namespace)
         if value:
@@ -74,7 +79,13 @@ class IntField(BaseField):
         return self._default
     
 class DateField(BaseField):
-    """We sometimes get dates that include a UTC offset.  We don't have a nice way to handle these, 
+    """
+    Returns the single value found by the xpath expression, as a datetime. By default, expects
+    dates that match the ISO date format (same as Java JAXB supplies).  If a date_format keyword
+    arg is supplied, that will be used instead.  Uses datetime.strptime under the hood, so the
+    date_format should be defined according to strptime rules.
+    
+    We sometimes get dates that include a UTC offset.  We don't have a nice way to handle these, 
     so for now we are going to strip the offset and throw it away"""
     match_utcoffset = re.compile(r"(^.*?)[+|-]\d{2}:\d{2}$")
     
@@ -114,7 +125,7 @@ class DateField(BaseField):
         return self._default
         
 class FloatField(BaseField):
-
+    """Returns the single value found by the xpath expression, as a float"""
     def parse(self, xml, namespace):
         value = self._fetch_by_xpath(xml, namespace)
         if value:
@@ -122,7 +133,7 @@ class FloatField(BaseField):
         return self._default
 
 class BoolField(BaseField):
-    
+    """Returns the single value found by the xpath expression, as a boolean"""
     def parse(self, xml, namespace):
         value = self._fetch_by_xpath(xml, namespace)
         if value is not None:
@@ -133,11 +144,12 @@ class BoolField(BaseField):
         return self._default
 
 class Collection(BaseField):
-    
-    def __init__(self, field_type, element_name=False, order_by=None, **kw):
+    """Returns a collection found by the xpath expression.  Requires a field_type to be supplied, which can
+    either be a field type, e.g. IntField, which returns a collection ints, or it can be a model type
+    e.g. Person may contain a collection of Address objects."""
+    def __init__(self, field_type, order_by=None, **kw):
         self.field_type = field_type
         self.order_by = order_by
-        self.element_name = element_name
         BaseField.__init__(self,**kw)
         
     def parse(self, xml, namespace):
@@ -156,7 +168,7 @@ class Collection(BaseField):
 CollectionField = Collection
 
 class ModelBase(type):
-
+    "Meta class for declarative xml_model building"
     def __init__(cls, name, bases, attrs):
         xml_fields = [field_name for field_name in attrs.keys() if isinstance(attrs[field_name], BaseField)]
         for field_name in xml_fields:
@@ -168,7 +180,7 @@ class ModelBase(type):
         return property(fget=lambda cls: cls._parse_field(field_impl), fset=lambda cls, value : cls._set_value(field_impl, value))
         
 class XmlModelManager(object):
-    
+
     def __init__(self, model, finders):
         self.model = model
         self.finders = {}
@@ -177,26 +189,26 @@ class XmlModelManager(object):
             field_names = [field.__name__ for field in key]
             self.finders[tuple(field_names)] = finders[key]
         self.query = XmlModelQuery()
-    
+
     def filter(self, **kw):        
         return XmlModelQuery(self).filter(**kw)
-        
+
     def count(self):
         raise NoRegisteredFinderError("foo")
-        
+
 class XmlModelQuery(object):
-    
+
     def __init__(self, manager):
         self.manager = manager
         self.args = {}
-        
+
     def filter(self, **kw):
         for key in kw.keys():
             self.args[key] = kw[key]
 
     def count(self):
         return self.model(rest_client.Client().GET(self._find_query_path()).content) 
-    
+
     def _find_query_path(self):
         key_tuple = tuple(self.args.keys())
         try:
@@ -204,10 +216,21 @@ class XmlModelQuery(object):
         except KeyError:
             raise NoRegisteredFinderError(str(key_tuple))
         return path
-        
+
 class Model:
     __metaclass__ = ModelBase
-
+    __doc__="""A model can be constructed with either an xml string, or an appropriate document supplied by
+    the xpath_twister.domify() method.
+    
+    An example:
+    
+    class Person(xml_models.Model):
+        namespace="urn:my.default.namespace"
+        name = xml_models.CharField(xpath"/Person/@Name", default="John")
+        nicknames = xml_models.CollectionField(CharField, xpath="/Person/Nicknames/Name")
+        addresses = xml_models.CollectionField(Address, xpath="/Person/Addresses/Address")
+        date_of_birth = xml_models.DateField(xpath="/Person/@DateOfBirth", date_format="%d-%m-%Y")
+    """
     def __init__(self, xml=None, dom=None):
         self._xml = xml
         self._dom = dom
@@ -232,33 +255,6 @@ class Model:
                 namespace = self.namespace
             self._cache[field] = field.parse(self._get_xml(), namespace)
         return self._cache[field]
-    
-class Address(Model):
-    number = IntField(xpath='/address/number')
-    street = CharField(xpath='/address/street')
-    city = CharField(xpath='/address/city')
-    foobars = Collection(CharField, xpath='/address/foobar')
 
-    finders = { (number,): "/number/%s",
-                (number, street): "/number/%s/street/%s",
-                (city,): "/place/%s"
-              }
-        
-class MyModel(Model):
-    muppet_name = CharField(xpath='/root/kiddie/value')
-    muppet_type = CharField(xpath='/root/kiddie/type', default='frog')
-    muppet_names = Collection(CharField, xpath='/root/kiddie/value')
-    muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
-    muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
-    
-    finders = { 
-                (muppet_name,): "http://foo.com/muppets/%s"
-              }
-    
-class NsModel(Model):
-    namespace='urn:test:namespace'
-    name=CharField(xpath='/root/name')
-    age=IntField(xpath='/root/age')
 
-class NoRegisteredFinderError(Exception):
-    pass
+
