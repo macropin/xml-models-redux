@@ -40,6 +40,14 @@ import rest_client
 
 class NoRegisteredFinderError(Exception):
     pass
+    
+class DoesNotExist(Exception):
+    
+    def __init__(self, model, args):
+        Exception.__init__(self, "DoesNotExist: %s matching query %s does not exist" %(model.__name__, str(args)))
+
+class XmlValidationError(Exception):
+    pass
 
 class BaseField:
     """All fields must specify an xpath as a keyword arg in their constructor.  Fields may optionally specify a 
@@ -195,6 +203,9 @@ class XmlModelManager(object):
 
     def count(self):
         raise NoRegisteredFinderError("foo")
+        
+    def get(self, **kw):
+        return XmlModelQuery(self, self.model).get(**kw)
 
 class XmlModelQuery(object):
 
@@ -214,6 +225,16 @@ class XmlModelQuery(object):
         for x in self._fragments(response.content):
             count += 1
         return count
+        
+    def get(self, **kw):
+        for key in kw.keys():
+            self.args[key] = kw[key]
+        response = rest_client.Client("").GET(self._find_query_path())
+        if not response.content:
+            raise DoesNotExist(self.model, self.args)
+        if response.response_code == 404:
+            raise DoesNotExist(self.model, self.args)
+        return self.model(xml=response.content)
         
     def _fragments(self, xml):
         return ["split elems"]
@@ -244,6 +265,10 @@ class Model:
         self._xml = xml
         self._dom = dom
         self._cache = {}
+        self.validate_on_load()
+
+    def validate_on_load(self):
+        pass
 
     def _get_xml(self):
         if self._dom is None:

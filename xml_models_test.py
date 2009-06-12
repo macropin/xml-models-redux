@@ -179,6 +179,53 @@ class XmlModelsTest(unittest.TestCase):
         count = MyModel.objects.filter(muppet_name="baz").count()
         self.assertEquals(1, count)
         self.assertTrue(mock_get.called)
+        
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_when_getting_for_a_registered_finder(self, mock_get):
+        class t:
+            content = "<root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root>"
+            response_code = 200
+        mock_get.return_value = t()
+        val = MyModel.objects.get(muppet_name="baz")
+        self.assertEquals("Gonzo", val.muppet_name)
+        self.assertTrue(mock_get.called)
+    
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_empty(self, mock_get):
+        class t:
+            content = ''
+            response_code = 200
+        mock_get.return_value = t()
+        try:
+            MyModel.objects.get(muppet_name="baz")
+            self.fail("Expected DoesNotExist")
+        except DoesNotExist, e:    
+            self.assertTrue("DoesNotExist" in str(e))
+    
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_code_404(self, mock_get):
+        class t:
+            content = '<HTML><body>Nothing to see here</body></HTML>'
+            response_code = 404
+        mock_get.return_value = t()
+        try:
+            MyModel.objects.get(muppet_name="baz")
+            self.fail("Expected DoesNotExist")
+        except DoesNotExist, e:
+            self.assertTrue("DoesNotExist" in str(e))
+            
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_raises_validation_error_on_load_when_validation_test_fails(self, mock_get):
+        class t:
+            content = '<HTML><body>Nothing to see here</body></HTML>'
+            response_code = 200
+        mock_get.return_value = t()   
+        try:
+            MyModel.objects.get(muppet_name="baz")
+            self.fail("Expected XmlValidationError")
+        except XmlValidationError, e:
+            self.assertTrue("Xml failed validation" in str(e))
+
 
 class Address(Model):
     number = IntField(xpath='/address/number')
@@ -197,6 +244,10 @@ class MyModel(Model):
     muppet_names = Collection(CharField, xpath='/root/kiddie/value')
     muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
     muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
+
+    def validate_on_load(self):
+        if not self.muppet_name:
+            raise XmlValidationError("What, no muppet name?")
 
     finders = { 
                 (muppet_name,): "http://foo.com/muppets/%s"
