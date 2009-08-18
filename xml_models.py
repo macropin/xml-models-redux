@@ -35,6 +35,7 @@ uses pyxml_xpath.  Better performance will be gained by installing lxml."""
 
 import unittest, re, datetime, time
 import xpath_twister as xpath
+from xml.etree import ElementTree as et
 import rest_client
 
 
@@ -234,10 +235,21 @@ class XmlModelQuery(object):
             raise DoesNotExist(self.model, self.args)
         if response.response_code == 404:
             raise DoesNotExist(self.model, self.args)
-        return self.model(xml=response.content)
+        content = response.content.read()
+        if not content:
+            raise DoesNotExist(self.model, self.args)
+        return self.model(xml=content)
         
     def _fragments(self, xml):
-        return ["split elems"]
+        tree = et.iterparse(xml, ['start','end'])
+        tree.next()
+        evt, child = tree.next()
+        node_name = child.tag
+        for event, elem in tree:
+            if event == 'end' and elem.tag == node_name:
+                result = et.tostring(elem)
+                elem.clear()
+                yield result
 
     def _find_query_path(self):
         key_tuple = tuple(self.args.keys())
@@ -276,6 +288,7 @@ class Model:
                 self._dom = xpath.domify(self._xml)
             except Exception, e:
                 print self._xml
+                print str(e)
                 raise e
         return self._dom
         

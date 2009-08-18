@@ -84,7 +84,7 @@ class Response(object):
         self._url = url
         self._response_code = response_code
         self._headers = dict(headers)
-        self._content = content.read()
+        self._content = content
         
     url = property(fget=lambda : self._url, doc="The url this response was returned from")
     response_code = property(fget=lambda : self._response_code, doc="The response code returned from the call")

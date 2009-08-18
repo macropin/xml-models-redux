@@ -33,6 +33,7 @@ from xml_models import *
 import xpath_twister as xpath
 import rest_client
 from mock import patch_object
+from StringIO import StringIO
 
 class XmlModelsTest(unittest.TestCase):
     
@@ -174,16 +175,25 @@ class XmlModelsTest(unittest.TestCase):
     @patch_object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
         class t:
-            content = "<elems><root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root></elems>"
+            content = StringIO("<elems><root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root></elems>")
         mock_get.return_value = t()
         count = MyModel.objects.filter(muppet_name="baz").count()
         self.assertEquals(1, count)
         self.assertTrue(mock_get.called)
         
     @patch_object(rest_client.Client, "GET")
+    def test_manager_counts_child_nodes_when_filtering_a_collection_of_results(self, mock_get):
+        class t:
+            content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
+        mock_get.return_value = t()
+        count = Simple.objects.filter(field1="baz").count()
+        self.assertEquals(2, count)
+        self.assertTrue(mock_get.called)
+        
+    @patch_object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_getting_for_a_registered_finder(self, mock_get):
         class t:
-            content = "<root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root>"
+            content = StringIO("<root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root>")
             response_code = 200
         mock_get.return_value = t()
         val = MyModel.objects.get(muppet_name="baz")
@@ -193,7 +203,7 @@ class XmlModelsTest(unittest.TestCase):
     @patch_object(rest_client.Client, "GET")
     def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_empty(self, mock_get):
         class t:
-            content = ''
+            content = StringIO('')
             response_code = 200
         mock_get.return_value = t()
         try:
@@ -205,7 +215,7 @@ class XmlModelsTest(unittest.TestCase):
     @patch_object(rest_client.Client, "GET")
     def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_code_404(self, mock_get):
         class t:
-            content = '<HTML><body>Nothing to see here</body></HTML>'
+            content = StringIO('<HTML><body>Nothing to see here</body></HTML>')
             response_code = 404
         mock_get.return_value = t()
         try:
@@ -217,14 +227,14 @@ class XmlModelsTest(unittest.TestCase):
     @patch_object(rest_client.Client, "GET")
     def test_manager_raises_validation_error_on_load_when_validation_test_fails(self, mock_get):
         class t:
-            content = '<HTML><body>Nothing to see here</body></HTML>'
+            content = StringIO('<HTML><body>Nothing to see here</body></HTML>')
             response_code = 200
         mock_get.return_value = t()   
         try:
-            MyModel.objects.get(muppet_name="baz")
+            MyValidatingModel.objects.get(muppet_name="baz")
             self.fail("Expected XmlValidationError")
         except XmlValidationError, e:
-            self.assertTrue("Xml failed validation" in str(e))
+            self.assertEquals("What, no muppet name?", str(e))
 
 
 class Address(Model):
@@ -245,6 +255,17 @@ class MyModel(Model):
     muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
     muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
 
+    finders = { 
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
+
+class MyValidatingModel(Model):
+    muppet_name = CharField(xpath='/root/kiddie/value')
+    muppet_type = CharField(xpath='/root/kiddie/type', default='frog')
+    muppet_names = Collection(CharField, xpath='/root/kiddie/value')
+    muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
+    muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
+
     def validate_on_load(self):
         if not self.muppet_name:
             raise XmlValidationError("What, no muppet name?")
@@ -252,12 +273,17 @@ class MyModel(Model):
     finders = { 
                 (muppet_name,): "http://foo.com/muppets/%s"
               }
-
 class NsModel(Model):
     namespace='urn:test:namespace'
     name=CharField(xpath='/root/name')
     age=IntField(xpath='/root/age')
 
+class Simple(Model):
+    field1=CharField(xpath='simple/field1')
+    
+    finders = {
+               (field1,): "http://foo.com/simple/%s"
+              }
 
 if __name__=='__main__':
     unittest.main()

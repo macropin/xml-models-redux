@@ -98,7 +98,7 @@ class ManagerTest(unittest.TestCase):
 
             def GET(self, url):
                 self.url = url
-        client = MyClient()
+        client = MyClient("")
         manager = Manager(client)
         manager.register_finder( ("hello","mum"), "http://greetings/%s/person/%s")
         #execute
@@ -117,7 +117,7 @@ class ManagerTest(unittest.TestCase):
 
             def GET(self, url):
                 self.url = url
-        client = MyClient()
+        client = MyClient("")
         manager = Manager(client)
         manager.register_finder( ("hello","mum"), "http://greetings/%s/person/%s")
         #execute
@@ -136,7 +136,7 @@ class ManagerTest(unittest.TestCase):
 
             def GET(self, url):
                 self.url = url
-        client = MyClient()
+        client = MyClient("")
         manager = Manager(client)
         manager.register_finder( ("hello","mum", "hello"), "http://greetings/%s/person/%s/welcome/%s")
         #execute
