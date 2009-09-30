@@ -30,7 +30,7 @@ or implied, of the FreeBSD Project.
 
 import unittest
 from xml_models import *
-import xpath_twister as xpath
+import xml_models.xpath_twister as xpath
 import rest_client
 from mock import patch_object
 from StringIO import StringIO
@@ -266,7 +266,7 @@ class XmlModelsTest(unittest.TestCase):
             content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
         mock_get.return_value = t()
         qry = Simple.objects.filter(field1="baz")
-        self.assertEquals(2, len(qry))        
+        self.assertEquals(2, len(qry))
     
 
 class Address(Model):
@@ -317,5 +317,8 @@ class Simple(Model):
                (field1,): "http://foo.com/simple/%s"
               }
 
+def main():
+    unittest.main()    
+
 if __name__=='__main__':
-    unittest.main()
+    main()

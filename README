@@ -1,0 +1,2 @@
+Django REST Model was written in a Test Driven Development style.  For example usages
+please refer to xml_models/xml_models_test.py

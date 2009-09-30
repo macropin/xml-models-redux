@@ -191,13 +191,19 @@ class ModelBase(type):
         return property(fget=lambda cls: cls._parse_field(field_impl), fset=lambda cls, value : cls._set_value(field_impl, value))
         
 class XmlModelManager(object):
-
+    """Handles what can be queried for, and acts as the entry point for querying.  There is an instance per model that is used
+    in the django style of Model.objects.get(attr1=value, attr2=value2) for single results, or 
+    Model.objects.filter(attr1=value1,attr2=value2) for multiple results.  As with Django, you can chain filters together, i.e.
+    Model.objects.filter(attr1=value1).filter(attr2=value2)  Filter is not evaluated until you try to iterate over the results or
+    get a count of the results."""
     def __init__(self, model, finders):
         self.model = model
         self.finders = {}
         for key in finders.keys():
             field_names = [field._name for field in key]
-            self.finders[tuple(field_names)] = finders[key]
+            sorted_field_names = list(field_names)
+            sorted_field_names.sort()
+            self.finders[tuple(sorted_field_names)] = (finders[key], field_names)
 
     def filter(self, **kw):        
         return XmlModelQuery(self, self.model).filter(**kw)
@@ -227,6 +233,14 @@ class XmlModelQuery(object):
             count += 1
         return count
         
+    def __iter__(self):
+        response = rest_client.Client("").GET(self._find_query_path()) 
+        for x in self._fragments(response.content):
+            yield self.model(xml=x)
+            
+    def __len__(self):
+        return self.count()
+        
     def get(self, **kw):
         for key in kw.keys():
             self.args[key] = kw[key]
@@ -252,12 +266,14 @@ class XmlModelQuery(object):
                 yield result
 
     def _find_query_path(self):
-        key_tuple = tuple(self.args.keys())
+        keys = self.args.keys()
+        keys.sort()
+        key_tuple = tuple(keys)
         try:
-            path = self.manager.finders[key_tuple]
+            (url, attrs) = self.manager.finders[key_tuple]
+            return url % tuple([ self.args[x] for x in attrs]) 
         except KeyError:
             raise NoRegisteredFinderError(str(key_tuple))
-        return path
 
 class Model:
     __metaclass__ = ModelBase
@@ -279,6 +295,9 @@ class Model:
         self._cache = {}
         self.validate_on_load()
 
+    """Override on your model to perform validation when the XML data is first passed in. This is to ensure the xml returned
+       conforms to the validation rules.  We use this because some records are no use to us if they don't contain certain
+       data."""
     def validate_on_load(self):
         pass
 
