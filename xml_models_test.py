@@ -199,7 +199,18 @@ class XmlModelsTest(unittest.TestCase):
         val = MyModel.objects.get(muppet_name="baz")
         self.assertEquals("Gonzo", val.muppet_name)
         self.assertTrue(mock_get.called)
-    
+        
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_when_getting_for_a_multi_field_registered_finder(self, mock_get):
+        class t:
+            content = StringIO("<address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address>")
+            response_code = 200
+        mock_get.return_value = t()
+        val = Address.objects.get(street="foo", number="bar")
+        self.assertEquals("1st Ave. South", val.street)
+        self.assertTrue(mock_get.called)
+        self.assertEquals("http://address/number/bar/street/foo", mock_get.call_args[0][0])
+
     @patch_object(rest_client.Client, "GET")
     def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_empty(self, mock_get):
         class t:
@@ -236,6 +247,27 @@ class XmlModelsTest(unittest.TestCase):
         except XmlValidationError, e:
             self.assertEquals("What, no muppet name?", str(e))
 
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_returns_iterator_for_collection_of_results(self, mock_get):
+        class t:
+            content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
+        mock_get.return_value = t()
+        qry = Simple.objects.filter(field1="baz")
+        results = []
+        for mod in qry:
+            results.append(mod)
+        self.assertEquals(2, len(results))
+        self.assertEquals("hello", results[0].field1)
+        self.assertEquals("goodbye", results[1].field1)
+            
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_returns_count_of_collection_of_results_when_len_is_called(self, mock_get):
+        class t:
+            content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
+        mock_get.return_value = t()
+        qry = Simple.objects.filter(field1="baz")
+        self.assertEquals(2, len(qry))        
+    
 
 class Address(Model):
     number = IntField(xpath='/address/number')
@@ -243,9 +275,9 @@ class Address(Model):
     city = CharField(xpath='/address/city')
     foobars = Collection(CharField, xpath='/address/foobar')
 
-    finders = { (number,): "/number/%s",
-                (number, street): "/number/%s/street/%s",
-                (city,): "/place/%s"
+    finders = { (number,): "http://address/number/%s",
+                (number, street): "http://address/number/%s/street/%s",
+                (city,): "http://address/place/%s"
               }
 
 class MyModel(Model):
@@ -279,7 +311,7 @@ class NsModel(Model):
     age=IntField(xpath='/root/age')
 
 class Simple(Model):
-    field1=CharField(xpath='simple/field1')
+    field1 = CharField(xpath='/root/field1')
     
     finders = {
                (field1,): "http://foo.com/simple/%s"
