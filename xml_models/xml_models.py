@@ -177,6 +177,17 @@ class Collection(BaseField):
     
 CollectionField = Collection
 
+class OneToOneField(BaseField):
+    def __init__(self, field_type, **kw):
+        self.field_type = field_type
+        BaseField.__init__(self,**kw)
+        
+    def parse(self, xml, namespace):
+        match = xpath.find_all(xml, self.xpath, namespace)
+        if len(match) == 1:
+            return self.field_type(xml=match[0])
+        return None
+        
 class ModelBase(type):
     "Meta class for declarative xml_model building"
     def __init__(cls, name, bases, attrs):

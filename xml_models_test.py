@@ -111,6 +111,10 @@ class XmlModelsTest(unittest.TestCase):
         my_model = MyModel('<root><kiddie><value>Rowlf</value></kiddie></root>')
         self.assertEquals('frog', my_model.muppet_type)
         
+    def test_one_to_one_returns_sub_component(self):
+        my_model = MasterModel(xml="<master><sub><name>fred</name></sub></master>")
+        self.assertEquals("fred", my_model.sub_model.name)
+        
     def test_collection_returns_expected_number_of_correcty_typed_results(self):
         my_model = MyModel('<root><kiddie><value>Rowlf</value><value>Kermit</value><value>Ms.Piggy</value></kiddie></root>')
         self.assertTrue('Rowlf' in my_model.muppet_names)
@@ -316,6 +320,12 @@ class Simple(Model):
     finders = {
                (field1,): "http://foo.com/simple/%s"
               }
+
+class SubModel(Model):
+    name = CharField(xpath='/sub/name')
+
+class MasterModel(Model):
+    sub_model = OneToOneField(SubModel, xpath='/master/sub')
 
 def main():
     unittest.main()    
