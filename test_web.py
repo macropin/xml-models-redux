@@ -113,6 +113,9 @@ class WebTest(TestCase):
         return (response, response_code)
     
     def test_get_with_file_call(self):
+        f = open('data.txt', 'w')
+        f.write("test file")
+        f.close()
         self.server.expect(method="GET", url="/address/\d+$").and_return(mime_type="text/xml", file_content="./data.txt")
         response, response_code = self._make_request("http://localhost:8998/address/25", method="GET")
         expected = open("./data.txt", "r").read()
@@ -127,7 +130,6 @@ class WebTest(TestCase):
         f, reply_code = self._make_request("http://localhost:8998/address/45", method="PUT", payload=str({"hello": "world", "hi": "mum"}))
         try:
             self.assertEquals("", f.read())
-            print capture
             captured = eval(capture["body"])
             self.assertEquals("world", captured["hello"])
             self.assertEquals("mum", captured["hi"])
@@ -137,11 +139,17 @@ class WebTest(TestCase):
 
     def test_post_with_data_and_no_body_response(self):
         self.server.expect(method="POST", url="address/\d+/inhabitant", data='<inhabitant name="Chris"/>').and_return(reply_code=204)
+        f, reply_code = self._make_request("http://localhost:8998/address/45/inhabitant", method="POST", payload='<inhabitant name="Chris"/>')
+        self.assertEquals(204, reply_code)
         
-        
-    def xtest_get_with_data(self):
+    def test_get_with_data(self):
         self.server.expect(method="GET", url="/monitor/server_status$").and_return(content="<html><body>Server is up</body></html>", mime_type="text/html")
-
+        f, reply_code = self._make_request("http://localhost:8998/monitor/server_status", method="GET")
+        try:
+            self.assertTrue("Server is up" in f.read())
+            self.assertEquals(200, reply_code)
+        finally:
+            f.close()
 
 if __name__=='__main__':
         unittest.main()
