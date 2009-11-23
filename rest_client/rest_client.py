@@ -1,9 +1,5 @@
-
-
 """
-The FreeBSD Copyright
-
-Copyright 1994-2009 The FreeBSD Project. All rights reserved.
+Copyright 2009 Chris Tarttelin and Point2 Technologies
 
 Redistribution and use in source and binary forms, with or without modification, are
 permitted provided that the following conditions are met:
@@ -29,6 +25,7 @@ The views and conclusions contained in the software and documentation are those 
 authors and should not be interpreted as representing official policies, either expressed
 or implied, of the FreeBSD Project.
 """
+
 
 __doc__="A REST client, supporting GET, PUT, POST and DELETE"
 

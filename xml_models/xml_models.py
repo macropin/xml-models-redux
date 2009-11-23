@@ -1,7 +1,5 @@
 """
-The FreeBSD Copyright
-
-Copyright 1994-2009 The FreeBSD Project. All rights reserved.
+Copyright 2009 Chris Tarttelin and Point2 Technologies
 
 Redistribution and use in source and binary forms, with or without modification, are
 permitted provided that the following conditions are met:
