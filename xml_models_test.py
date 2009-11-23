@@ -34,6 +34,7 @@ import xml_models.xpath_twister as xpath
 import rest_client
 from mock import patch_object
 from StringIO import StringIO
+from test_web import StubServer
 
 class XmlModelsTest(unittest.TestCase):
     
@@ -272,7 +273,20 @@ class XmlModelsTest(unittest.TestCase):
         qry = Simple.objects.filter(field1="baz")
         self.assertEquals(2, len(qry))
     
-
+class FunctionalTest(unittest.TestCase):
+    def setUp(self):
+        self.server = StubServer(8998)
+        self.server.run()
+        
+    def tearDown(self):
+        self.server.stop()
+        self.server.verify()
+        
+    def test_get_with_file_call(self):
+        self.server.expect(method="GET", url="/address/\w+$").and_return(mime_type="text/xml", content="<address><number>12</number><street>Early Drive</street><city>Calgary</city></address>")
+        address = Address.objects.get(city="Calgary")
+        self.assertEquals("Early Drive", address.street)
+        
 class Address(Model):
     number = IntField(xpath='/address/number')
     street = CharField(xpath='/address/street')
@@ -281,7 +295,7 @@ class Address(Model):
 
     finders = { (number,): "http://address/number/%s",
                 (number, street): "http://address/number/%s/street/%s",
-                (city,): "http://address/place/%s"
+                (city,): "http://localhost:8998/address/%s"
               }
 
 class MyModel(Model):

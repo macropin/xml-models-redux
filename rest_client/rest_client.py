@@ -75,7 +75,7 @@ class Client(object):
         response_code = getattr(response, 'code', -1)
         if response_code == -1:
             raise urllib2.HTTPError(url, response_code, "Error accessing external resource", None, None)
-        return Response(base_url + url, response_code, response.headers, response)
+        return Response(self.base_url + url, response_code, response.headers, response)
         
 class Response(object):
     """Encapsulates the response from a client GET/PUT/POST/DELETE call"""
@@ -87,9 +87,9 @@ class Response(object):
         self._content = content
         
     url = property(fget=lambda : self._url, doc="The url this response was returned from")
-    response_code = property(fget=lambda : self._response_code, doc="The response code returned from the call")
-    headers = property(fget=lambda : self._headers, doc="The headers returned in the response")
-    content = property(fget=lambda : self._content, doc="The response body, as a string, returned from the call")
+    response_code = property(fget=lambda self : self._response_code, doc="The response code returned from the call")
+    headers = property(fget=lambda self : self._headers, doc="The headers returned in the response")
+    content = property(fget=lambda self : self._content, doc="The response body, as a string, returned from the call")
         
     def expect(self, response_code):
         "If the actual response code does not match the expected response code, raises a HTTPError"
