@@ -215,7 +215,4 @@ class WebTest(TestCase):
             f.close()
 
 if __name__=='__main__':
-    try:
-        unittest.main()
-    except:
-        pass
+    unittest.main()
