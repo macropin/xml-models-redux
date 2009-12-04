@@ -25,9 +25,43 @@ The views and conclusions contained in the software and documentation are those 
 authors and should not be interpreted as representing official policies, either expressed
 or implied, of the FreeBSD Project.
 """
-import BaseHTTPServer, cgi, threading, re
+import BaseHTTPServer, cgi, threading, re, urllib
 import unittest, urllib, urllib2, time
 from unittest import TestCase
+import sys
+
+
+class StoppableHTTPServer(BaseHTTPServer.HTTPServer):
+    """Python 2.5 HTTPServer does not close down properly when calling server_close.
+    The implementation below was based on the comments in the below article:-
+    http://stackoverflow.com/questions/268629/how-to-stop-basehttpserver-serveforever-in-a-basehttprequesthandler-subclass
+    """
+    stopped = False
+    allow_reuse_address = True
+
+    def __init__(self, *args, **kw):
+        BaseHTTPServer.HTTPServer.__init__(self, *args, **kw)
+
+    def serve_forever(self):
+        while not self.stopped:
+            self.handle_request()
+
+    def server_close(self):
+        BaseHTTPServer.HTTPServer.server_close(self)
+        self.stopped = True
+        self._create_dummy_request()
+
+    def _create_dummy_request(self):
+        f = urllib.urlopen("http://localhost:" + str(self.server_port) + "/__shutdown")
+        f.read()
+        f.close()
+
+
+if sys.version_info[0] == 2 and sys.version_info[1] < 6:
+    HTTPServer = StoppableHTTPServer
+    print "Using stoppable server"
+else:
+    HTTPServer = BaseHTTPServer.HTTPServer
 
 
 class StubServer(object):
@@ -39,7 +73,7 @@ class StubServer(object):
 
     def run(self):
         server_address = ('localhost', self.port)
-        self.httpd = BaseHTTPServer.HTTPServer(server_address, StubResponse)
+        self.httpd = HTTPServer(server_address, StubResponse)
         t = threading.Thread(target=self._run)
         t.start()
         time.sleep(0.5)
@@ -109,6 +143,8 @@ S
         if not self.parse_request(): # An error code has been sent, just exit
             return
         method = self.command
+        if self.path == "/__shutdown":
+            self.send_response(200, "Python")
         for exp in self.expected:
             if exp.method == method and re.search(exp.url, self.path):
                 self.send_response(exp.response[0], "Python")
@@ -179,4 +215,7 @@ class WebTest(TestCase):
             f.close()
 
 if __name__=='__main__':
+    try:
         unittest.main()
+    except:
+        pass
