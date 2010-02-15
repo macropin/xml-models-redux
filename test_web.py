@@ -25,7 +25,7 @@ The views and conclusions contained in the software and documentation are those 
 authors and should not be interpreted as representing official policies, either expressed
 or implied, of the FreeBSD Project.
 """
-import BaseHTTPServer, cgi, threading, re, urllib
+import BaseHTTPServer, cgi, threading, re, urllib, httplib
 import unittest, urllib, urllib2, time
 from unittest import TestCase
 import sys
@@ -67,7 +67,7 @@ else:
 class StubServer(object):
 
     _expectations = []
-    
+
     def __init__(self, port):
         self.port = port
 
@@ -76,10 +76,10 @@ class StubServer(object):
         self.httpd = HTTPServer(server_address, StubResponse)
         t = threading.Thread(target=self._run)
         t.start()
-        time.sleep(0.5)
-        
+
     def stop(self):
         self.httpd.server_close()
+        self.verify()
 
     def _run(self, ):
         try:
@@ -88,10 +88,15 @@ class StubServer(object):
             pass
 
     def verify(self):
-        pass
-        # check each expectation was called
+        failures = []
+        for expectation in self._expectations:
+            if not expectation.satisfied:
+                failures.append(str(expectation))
+            self._expectations.remove(expectation)
+        if failures:
+            raise Exception("Unsatisfied expectations:\n" + "\n".join(failures))
 
-    def expect(self, method="GET", url="^UrlRegExpMather$", data=None, data_capture={}, file_content=None):
+    def expect(self, method="GET", url="^UrlRegExpMatcher$", data=None, data_capture={}, file_content=None):
         expected = Expectation(method, url, data, data_capture)
         self._expectations.append(expected)
         return expected
@@ -102,13 +107,17 @@ class Expectation(object):
         self.url = url
         self.data = data
         self.data_capture = data_capture
-        
+        self.satisfied = False
+
     def and_return(self, mime_type="text/html", reply_code=200, content="", file_content=None):
         if file_content:
             f = open(file_content, "r")
             content = f.read()
             f.close()
         self.response = (reply_code, mime_type, content)
+
+    def __str__(self):
+        return self.method + ":" + self.url
 
 class StubResponse(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -117,10 +126,64 @@ class StubResponse(BaseHTTPServer.BaseHTTPRequestHandler):
         BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, clientaddress, parent)
 
     def _get_data(self):
-        max_chunk_size = 10*1024*1024
-        if not self.headers.has_key("content-length"):
+        if self.headers.has_key("content-length"):
+            size_remaining = int(self.headers["content-length"])
+            return self._read_chunk(size_remaining)
+        elif self.headers.get('Transfer-Encoding', "") == "chunked":
+            # Copied from httplib ... should find a way to use httplib instead of copying...
+            chunk_left = None
+            value = ''
+            amt = None
+            # XXX This accumulates chunks by repeated string concatenation,
+            # which is not efficient as the number or size of chunks gets big.
+            while True:
+                if chunk_left is None:
+                    line = self.rfile.readline()
+                    i = line.find(';')
+                    if i >= 0:
+                        line = line[:i] # strip chunk-extensions
+                    chunk_left = int(line, 16)
+                    if chunk_left == 0:
+                        break
+                if amt is None:
+                    value += self._read_chunk(chunk_left)
+                elif amt < chunk_left:
+                    value += self._read_chunk(amt)
+                    self.chunk_left = chunk_left - amt
+                    return value
+                elif amt == chunk_left:
+                    value += self._read_chunk(amt)
+                    self._read_chunk(2) # toss the CRLF at the end of the chunk
+                    self.chunk_left = None
+                    return value
+                else:
+                    value += self._read_chunk(chunk_left)
+                    amt -= chunk_left
+
+                # we read the whole chunk, get another
+                self._read_chunk(2)     # toss the CRLF at the end of the chunk
+                chunk_left = None
+
+            # read and discard trailer up to the CRLF terminator
+            ### note: we shouldn't have any trailers!
+            while True:
+                line = self.rfile.readline()
+                if not line:
+                    # a vanishingly small number of sites EOF without
+                    # sending the trailer
+                    break
+                if line == '\r\n':
+                    break
+
+            # we read everything; close the "file"
+            self.rfile.close()
+
+            return value
+        else:
             return ""
-        size_remaining = int(self.headers["content-length"])
+
+    def _read_chunk(self, size_remaining):
+        max_chunk_size = 10*1024*1024
         L = []
         while size_remaining:
             chunk_size = min(size_remaining, max_chunk_size)
@@ -134,7 +197,6 @@ class StubResponse(BaseHTTPServer.BaseHTTPRequestHandler):
         You normally don't need to override this method; see the class
         __doc__ string for information on how to handle specific HTTP
         commands such as GET and POST.
-S
         """
         self.raw_requestline = self.rfile.readline()
         if not self.raw_requestline:
@@ -146,26 +208,28 @@ S
         if self.path == "/__shutdown":
             self.send_response(200, "Python")
         for exp in self.expected:
-            if exp.method == method and re.search(exp.url, self.path):
+            if exp.method == method and re.search(exp.url, self.path) and not exp.satisfied:
                 self.send_response(exp.response[0], "Python")
                 self.send_header("Content-Type", exp.response[1])
                 self.end_headers()
                 self.wfile.write(exp.response[2])
-                exp.data_capture["body"] = self._get_data()
+                data = self._get_data()
+                exp.satisfied = True
+                exp.data_capture["body"] = data
                 break
         self.wfile.flush()
 
 
 class WebTest(TestCase):
-    
+
     def setUp(self):
         self.server = StubServer(8998)
         self.server.run()
-        
+
     def tearDown(self):
         self.server.stop()
         self.server.verify()
-        
+
     def _make_request(self, url, method="GET", payload="", headers={}):
         self.opener = urllib2.OpenerDirector()
         self.opener.add_handler(urllib2.HTTPHandler())
@@ -174,7 +238,7 @@ class WebTest(TestCase):
         response = self.opener.open(request)
         response_code = getattr(response, 'code', -1)
         return (response, response_code)
-    
+
     def test_get_with_file_call(self):
         f = open('data.txt', 'w')
         f.write("test file")
@@ -204,7 +268,7 @@ class WebTest(TestCase):
         self.server.expect(method="POST", url="address/\d+/inhabitant", data='<inhabitant name="Chris"/>').and_return(reply_code=204)
         f, reply_code = self._make_request("http://localhost:8998/address/45/inhabitant", method="POST", payload='<inhabitant name="Chris"/>')
         self.assertEquals(204, reply_code)
-        
+
     def test_get_with_data(self):
         self.server.expect(method="GET", url="/monitor/server_status$").and_return(content="<html><body>Server is up</body></html>", mime_type="text/html")
         f, reply_code = self._make_request("http://localhost:8998/monitor/server_status", method="GET")
