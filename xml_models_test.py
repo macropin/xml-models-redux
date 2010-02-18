@@ -32,7 +32,7 @@ import xml_models.xpath_twister as xpath
 import rest_client
 from mock import patch_object
 from StringIO import StringIO
-from test_web import StubServer
+from stubserver import StubServer
 
 class XmlModelsTest(unittest.TestCase):
     
