@@ -7,9 +7,3 @@ xml_models/__init__.py
 xml_models/xml_models.py
 xml_models/xpath_twister.py
 xml_models_test.py
-mock.py
-xpath/__init__.py
-xpath/exceptions.py
-xpath/expr.py
-xpath/parser.py
-xpath/yappsrt.py
