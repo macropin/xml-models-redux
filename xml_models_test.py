@@ -43,6 +43,13 @@ class XmlModelsTest(unittest.TestCase):
         response = field.parse(xml, None)
         self.assertEquals('Muppets rock', response) 
         
+    def test_char_field_reads_from_attribute(self):
+        xml_string = '<Listing><Details><Bathrooms comment="Nice Baths">6</Bathrooms></Details></Listing>'
+        xml = xpath.domify(xml_string)
+        field = CharField(xpath='/Listing/Details/Bathrooms/@comment')
+        response = field.parse(xml, None)
+        self.assertEquals('Nice Baths', response)
+        
     def test_int_field_returns_xpathed_value_for_the_node_passed_in(self):
         xml_string = '<root><kiddie><value>123</value></kiddie></root>'
         xml = xpath.domify(xml_string)
@@ -60,6 +67,13 @@ class XmlModelsTest(unittest.TestCase):
         except:
             pass
             # Exception raised, all is right with the world
+            
+    def test_int_field_reads_from_attribute(self):
+        xml_string = '<Listing id="123"/>'
+        xml = xpath.domify(xml_string)
+        field = IntField(xpath='/Listing/@id')
+        response = field.parse(xml, None)
+        self.assertEquals(123, response)
     
     def test_date_field_returns_xpathed_value_for_the_node_passed_in(self):
         xml_string = '<root><kiddie><value>2008-06-21T10:36:12</value></kiddie></root>'
@@ -70,11 +84,11 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals(date, response)
             
     def test_date_field_strips_utc_offset_from_xpathed_value_for_the_node_passed_in(self):
-        xml_string = '<root><kiddie><value>2008-06-21T10:36:12.280-06:00</value></kiddie></root>'
+        xml_string = '<root><kiddie><value>2008-06-21T10:36:12-06:00</value></kiddie></root>'
         xml = xpath.domify(xml_string)
         field = DateField(xpath='/root/kiddie/value')
         response = field.parse(xml,None)
-        date = datetime.datetime(2008,06,21,10,36,12, 280000)
+        date = datetime.datetime(2008,06,21,10,36,12)
         self.assertEquals(date, response)
         
     def test_date_field_returns_none_when_xpathed_value_for_the_node_is_none(self):
@@ -262,7 +276,20 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals(2, len(results))
         self.assertEquals("hello", results[0].field1)
         self.assertEquals("goodbye", results[1].field1)
-            
+        
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_returns_iterator_for_collection_of_results_from_custom_query(self, mock_get):
+        class t:
+            content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
+        mock_get.return_value = t()
+        qry = Simple.objects.filter_custom("http://hard_coded_url")
+        results = []
+        for mod in qry:
+            results.append(mod)
+        self.assertEquals(2, len(results))
+        self.assertEquals("hello", results[0].field1)
+        self.assertEquals("goodbye", results[1].field1)
+
     @patch_object(rest_client.Client, "GET")
     def test_manager_returns_count_of_collection_of_results_when_len_is_called(self, mock_get):
         class t:
@@ -321,6 +348,7 @@ class MyValidatingModel(Model):
     finders = { 
                 (muppet_name,): "http://foo.com/muppets/%s"
               }
+              
 class NsModel(Model):
     namespace='urn:test:namespace'
     name=CharField(xpath='/root/name')

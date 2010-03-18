@@ -10,7 +10,7 @@ class XPathScanner(Scanner):
         ("r'\\:'", re.compile('\\:')),
         ("r'node'", re.compile('node')),
         ("r'text'", re.compile('text')),
-        ("r'comment'", re.compile('comment')),
+        ("r'[^@]comment'", re.compile('[^@]comment')),
         ("r'processing-instruction'", re.compile('processing-instruction')),
         ("r'\\,'", re.compile('\\,')),
         ("r'\\.'", re.compile('\\.')),

@@ -216,6 +216,9 @@ class XmlModelManager(object):
 
     def filter(self, **kw):        
         return XmlModelQuery(self, self.model).filter(**kw)
+        
+    def filter_custom(self, url):
+        return XmlModelQuery(self, self.model).filter_custom(url)
 
     def count(self):
         raise NoRegisteredFinderError("foo")
@@ -233,6 +236,10 @@ class XmlModelQuery(object):
     def filter(self, **kw):
         for key in kw.keys():
             self.args[key] = kw[key]
+        return self
+        
+    def filter_custom(self, url):
+        self.custom_url = url
         return self
 
     def count(self):
@@ -275,6 +282,8 @@ class XmlModelQuery(object):
                 yield result
 
     def _find_query_path(self):
+        if hasattr(self, 'custom_url'):
+            return self.custom_url
         keys = self.args.keys()
         keys.sort()
         key_tuple = tuple(keys)
