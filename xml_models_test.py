@@ -28,11 +28,34 @@ or implied, of the FreeBSD Project.
 
 import unittest
 from xml_models import *
+from xml_models.xml_models_stub import stub
 import xml_models.xpath_twister as xpath
 import rest_client
 from mock import patch_object
 from StringIO import StringIO
 from stubserver import StubServer
+
+class Address(Model):
+    number = IntField(xpath='/address/number')
+    street = CharField(xpath='/address/street')
+    city = CharField(xpath='/address/city')
+    foobars = Collection(CharField, xpath='/address/foobar')
+
+    finders = { (number,): "http://address/number/%s",
+                (number, street): "http://address/number/%s/street/%s",
+                (city,): "http://localhost:8998/address/%s"
+              }
+
+class MyModel(Model):
+    muppet_name = CharField(xpath='/root/kiddie/value')
+    muppet_type = CharField(xpath='/root/kiddie/type', default='frog')
+    muppet_names = Collection(CharField, xpath='/root/kiddie/value')
+    muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
+    muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
+
+    finders = { 
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
 
 class XmlModelsTest(unittest.TestCase):
     
@@ -297,6 +320,19 @@ class XmlModelsTest(unittest.TestCase):
         mock_get.return_value = t()
         qry = Simple.objects.filter(field1="baz")
         self.assertEquals(2, len(qry))
+        
+    @stub(MyModel)
+    def test_stub_allows_stubbing_return_values_for_queries(self):
+        MyModel.stub().get(muppet_name='Kermit').returns(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle'])
+        result = MyModel.objects.get(muppet_name='Kermit')
+        self.assertEquals('toad', result.muppet_type)
+        
+    @stub(MyModel)
+    def test_stub_allows_stubbing_filter_requests(self):
+        MyModel.stub().filter(muppet_name='Kermit').returns(dict(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle']))
+        result = MyModel.objects.filter(muppet_name='Kermit')
+        self.assertEquals(1, len(result))
+        self.assertEquals('toad',list(result)[0].muppet_type)
     
 class FunctionalTest(unittest.TestCase):
     def setUp(self):
@@ -311,28 +347,7 @@ class FunctionalTest(unittest.TestCase):
         self.server.expect(method="GET", url="/address/\w+$").and_return(mime_type="text/xml", content="<address><number>12</number><street>Early Drive</street><city>Calgary</city></address>")
         address = Address.objects.get(city="Calgary")
         self.assertEquals("Early Drive", address.street)
-        
-class Address(Model):
-    number = IntField(xpath='/address/number')
-    street = CharField(xpath='/address/street')
-    city = CharField(xpath='/address/city')
-    foobars = Collection(CharField, xpath='/address/foobar')
 
-    finders = { (number,): "http://address/number/%s",
-                (number, street): "http://address/number/%s/street/%s",
-                (city,): "http://localhost:8998/address/%s"
-              }
-
-class MyModel(Model):
-    muppet_name = CharField(xpath='/root/kiddie/value')
-    muppet_type = CharField(xpath='/root/kiddie/type', default='frog')
-    muppet_names = Collection(CharField, xpath='/root/kiddie/value')
-    muppet_ages = Collection(IntField, xpath='/root/kiddie/age')
-    muppet_addresses = Collection(Address, xpath='/root/kiddie/address', order_by='number')
-
-    finders = { 
-                (muppet_name,): "http://foo.com/muppets/%s"
-              }
 
 class MyValidatingModel(Model):
     muppet_name = CharField(xpath='/root/kiddie/value')
