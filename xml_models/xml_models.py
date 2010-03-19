@@ -195,6 +195,8 @@ class ModelBase(type):
             attrs[field_name]._name = field_name
         if attrs.has_key("finders"):
             setattr(cls, "objects", XmlModelManager(cls, attrs["finders"]))
+        else:
+            setattr(cls, "objects", XmlModelManager(cls, {}))
     
     def _get_xpath(cls, field_name, field_impl):
         return property(fget=lambda cls: cls._parse_field(field_impl), fset=lambda cls, value : cls._set_value(field_impl, value))

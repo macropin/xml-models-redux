@@ -282,7 +282,7 @@ class XmlModelsTest(unittest.TestCase):
         class t:
             content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
         mock_get.return_value = t()
-        qry = Simple.objects.filter_custom("http://hard_coded_url")
+        qry = SimpleWithoutFinder.objects.filter_custom("http://hard_coded_url")
         results = []
         for mod in qry:
             results.append(mod)
@@ -360,6 +360,8 @@ class Simple(Model):
     finders = {
                (field1,): "http://foo.com/simple/%s"
               }
+class SimpleWithoutFinder(Model):
+    field1 = CharField(xpath='/root/field1')
 
 class SubModel(Model):
     name = CharField(xpath='/sub/name')
