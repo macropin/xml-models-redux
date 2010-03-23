@@ -62,6 +62,8 @@ def _lxml_xpath(xml_doc, expression, namespace):
             matched = matches[0]
             if type(matched) == type(''):
                 return unicode(matched).strip()
+            if isinstance(matched, etree._ElementStringResult):
+                 return str(matched)
             if isinstance(matched, etree._ElementUnicodeResult):
                 return unicode(matched)
             if matched is None or matched == False:
