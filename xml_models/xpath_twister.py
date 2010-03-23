@@ -62,13 +62,13 @@ def _lxml_xpath(xml_doc, expression, namespace):
             matched = matches[0]
             if type(matched) == type(''):
                 return unicode(matched).strip()
-            if isinstance(matched, etree._ElementStringResult):
-                return str(matched)
+            if isinstance(matched, etree._ElementUnicodeResult):
+                return unicode(matched)
             if matched is None or matched == False:
                 return unicode(matched.text).strip()
             if isinstance(matched, etree._Element):
                 if matched.text is not None:
-                    return str(matched.text)
+                    return unicode(matched.text)
         if len(matches) > 1:
             raise MultipleNodesReturnedException
     
@@ -132,6 +132,14 @@ class XPathTest(unittest.TestCase):
         #assert
         self.assertEquals("abcd", val)
         
+    def test_xpath_returns_expected_element_value_from_unicode_xml_fragment(self):
+        #setup
+        xml = minidom.parseString(u"<foo><baz>dcba</baz><bar>abcd\xe9</bar></foo>".encode('utf-8'))
+        #execute
+        val = _pydom_xpath(xml, "/foo/bar", None)
+        #assert
+        self.assertEquals(u"abcd\xe9", val)
+    
     def test_xpath_returns_expected_attribute_value(self):
         #setup
         xml = minidom.parseString('<foo><baz name="Arthur">dcba</baz><bar>abcd</bar></foo>')
@@ -140,6 +148,30 @@ class XPathTest(unittest.TestCase):
         #assert
         self.assertEquals("Arthur", val)
         
+    def test_xpath_returns_expected_attribute_value_from_unicode_xml_fragment(self):
+        #setup
+        xml = minidom.parseString(u'<foo><baz name="Arthur\xe9">dcba</baz><bar>abcd</bar></foo>'.encode('utf-8'))
+        #execute
+        val = _pydom_xpath(xml, "/foo/baz/@name", None)
+        #assert
+        self.assertEquals(u"Arthur\xe9", val)
+    
+    def test_lxml_returns_expected_element_value(self):
+        #setup
+        xml = objectify.fromstring('<foo><baz name="Arthur">dcba</baz><bar>abcd</bar></foo>')
+        #execute
+        val = _lxml_xpath(xml, "/foo/bar", None)
+        #assert
+        self.assertEquals("abcd", val)
+    
+    def test_lxml_returns_expected_element_value_from_unicode_xml_fragment(self):
+        #setup
+        xml = objectify.fromstring(u'<foo><baz name="Arthur">dcba</baz><bar>abcd\xe9</bar></foo>'.encode('utf-8'))
+        #execute
+        val = _lxml_xpath(xml, "/foo/bar", None)
+        #assert
+        self.assertEquals(u"abcd\xe9", val)
+    
     def test_lxml_returns_expected_attribute_value(self):
         #setup
         xml = objectify.fromstring('<foo><baz name="Arthur">dcba</baz><bar>abcd</bar></foo>')
@@ -147,7 +179,14 @@ class XPathTest(unittest.TestCase):
         val = _lxml_xpath(xml, "/foo/baz/@name", None)
         #assert
         self.assertEquals("Arthur", val)
-        
-        
+
+    def test_lxml_returns_expected_attribute_value_from_unicode_xml_fragment(self):
+        #setup
+        xml = objectify.fromstring(u'<foo><baz name="Arthur\xe9">dcba</baz><bar>abcd</bar></foo>'.encode('utf-8'))
+        #execute
+        val = _lxml_xpath(xml, "/foo/baz/@name", None)
+        #assert
+        self.assertEquals(u"Arthur\xe9", val)
+    
 if __name__=='__main__':
     unittest.main()

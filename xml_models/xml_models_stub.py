@@ -51,7 +51,7 @@ class Expectation(object):
                     setattr(item, key, value)
                 self.result.append(item)
         elif kw and self.method == 'get':
-            self.result = self.model()
+            self.result = self.model(xml='<x/>')
             for key, value in kw.items():
                 setattr(self.result, key, value)
         else:
