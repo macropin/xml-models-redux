@@ -333,6 +333,13 @@ class XmlModelsTest(unittest.TestCase):
         result = MyModel.objects.filter(muppet_name='Kermit')
         self.assertEquals(1, len(result))
         self.assertEquals('toad',list(result)[0].muppet_type)
+        
+    def test_headers_field_specified_on_model_is_added_to_the_query_manager(self):
+        self.assertTrue(Simple.objects.headers != None)
+        self.assertEquals('user1', Simple.objects.headers['user'])
+        query = Simple.objects.filter(field1="Rhubarb")
+        self.assertTrue(query.headers != None)
+        self.assertEquals('pwd1', query.headers['password'])
     
 class FunctionalTest(unittest.TestCase):
     def setUp(self):
@@ -375,6 +382,7 @@ class Simple(Model):
     finders = {
                (field1,): "http://foo.com/simple/%s"
               }
+    headers = {'user': 'user1', 'password': 'pwd1'}
 class SimpleWithoutFinder(Model):
     field1 = CharField(xpath='/root/field1')
 

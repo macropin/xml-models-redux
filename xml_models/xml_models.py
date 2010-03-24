@@ -197,6 +197,8 @@ class ModelBase(type):
             setattr(cls, "objects", XmlModelManager(cls, attrs["finders"]))
         else:
             setattr(cls, "objects", XmlModelManager(cls, {}))
+        if attrs.has_key("headers"):
+            setattr(cls.objects, "headers", attrs["headers"])
     
     def _get_xpath(cls, field_name, field_impl):
         return property(fget=lambda cls: cls._parse_field(field_impl), fset=lambda cls, value : cls._set_value(field_impl, value))
@@ -210,6 +212,7 @@ class XmlModelManager(object):
     def __init__(self, model, finders):
         self.model = model
         self.finders = {}
+        self.headers = {}
         for key in finders.keys():
             field_names = [field._name for field in key]
             sorted_field_names = list(field_names)
@@ -217,23 +220,24 @@ class XmlModelManager(object):
             self.finders[tuple(sorted_field_names)] = (finders[key], field_names)
 
     def filter(self, **kw):        
-        return XmlModelQuery(self, self.model).filter(**kw)
+        return XmlModelQuery(self, self.model, headers=self.headers).filter(**kw)
         
     def filter_custom(self, url):
-        return XmlModelQuery(self, self.model).filter_custom(url)
+        return XmlModelQuery(self, self.model, headers=self.headers).filter_custom(url)
 
     def count(self):
         raise NoRegisteredFinderError("foo")
         
     def get(self, **kw):
-        return XmlModelQuery(self, self.model).get(**kw)
+        return XmlModelQuery(self, self.model, headers=self.headers).get(**kw)
 
 class XmlModelQuery(object):
 
-    def __init__(self, manager, model):
+    def __init__(self, manager, model, headers={}):
         self.manager = manager
         self.model = model
         self.args = {}
+        self.headers = headers
 
     def filter(self, **kw):
         for key in kw.keys():
@@ -262,7 +266,7 @@ class XmlModelQuery(object):
     def get(self, **kw):
         for key in kw.keys():
             self.args[key] = kw[key]
-        response = rest_client.Client("").GET(self._find_query_path())
+        response = rest_client.Client("").GET(self._find_query_path(), headers=self.headers)
         if not response.content:
             raise DoesNotExist(self.model, self.args)
         if response.response_code == 404:
