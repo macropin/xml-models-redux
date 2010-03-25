@@ -333,7 +333,14 @@ class XmlModelsTest(unittest.TestCase):
         result = MyModel.objects.filter(muppet_name='Kermit')
         self.assertEquals(1, len(result))
         self.assertEquals('toad',list(result)[0].muppet_type)
-        
+    
+    @stub(MyModel)
+    def test_stub_allows_stubbing_filter_custom_requests(self):
+        MyModel.stub().filter_custom('http://anyurl.com').returns(dict(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle']))
+        result = MyModel.objects.filter_custom('http://anyurl.com')
+        self.assertEquals(1, len(result))
+        self.assertEquals('toad',list(result)[0].muppet_type)
+    
     def test_headers_field_specified_on_model_is_added_to_the_query_manager(self):
         self.assertTrue(Simple.objects.headers != None)
         self.assertEquals('user1', Simple.objects.headers['user'])

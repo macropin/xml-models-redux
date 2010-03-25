@@ -21,7 +21,9 @@ class XmlModelStubManager(object):
                 return exp.called()
         
     def filter_custom(self, url):
-         raise NoRegisteredFinderError("foo")
+        for exp in self._stubs:
+            if exp.args == url:
+                return exp.called() 
 
     def count(self):
         raise NoRegisteredFinderError("foo")
@@ -43,7 +45,7 @@ class Expectation(object):
         return self
 
     def returns(self, *params, **kw):
-        if params and self.method == 'filter':
+        if params and self.method.startswith('filter'):
             self.result = []
             for args in params:
                 item = self.model()
@@ -61,9 +63,16 @@ class Expectation(object):
                 raise Exception("filter methods return multiple items, call returns(dict(arg_name='name', arg_age='age' ...), dict(.....))")
 
     def filter(self, **kw):
-        self.args = kw
-        self.method = 'filter'
+            self.args = kw
+            self.method = 'filter'
+            return self
+        
+    def filter_custom(self, url):
+        self.args = url
+        self.method = 'filter_custom'
         return self
+        
+        
         
     def called(self):
         return self.result

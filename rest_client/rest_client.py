@@ -64,6 +64,7 @@ class Client(object):
         else:
             self.opener = urllib2.OpenerDirector()
             self.opener.add_handler(urllib2.HTTPHandler())
+            self.opener.add_handler(urllib2.HTTPSHandler())
     
     def _make_request(self, url, method, payload, headers):
         request = urllib2.Request(self.base_url + url, headers=headers, data=payload)

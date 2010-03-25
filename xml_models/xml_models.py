@@ -249,14 +249,14 @@ class XmlModelQuery(object):
         return self
 
     def count(self):
-        response = rest_client.Client("").GET(self._find_query_path()) 
+        response = rest_client.Client("").GET(self._find_query_path(), headers=self.headers) 
         count = 0
         for x in self._fragments(response.content):
             count += 1
         return count
         
     def __iter__(self):
-        response = rest_client.Client("").GET(self._find_query_path()) 
+        response = rest_client.Client("").GET(self._find_query_path(), headers=self.headers) 
         for x in self._fragments(response.content):
             yield self.model(xml=x)
             
