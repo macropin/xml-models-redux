@@ -340,6 +340,12 @@ class XmlModelsTest(unittest.TestCase):
         result = MyModel.objects.filter_custom('http://anyurl.com')
         self.assertEquals(1, len(result))
         self.assertEquals('toad',list(result)[0].muppet_type)
+        
+    def test_stub_allows_stubbing_filter_custom_requests(self):
+        @stub('MyModel')
+        def test_something_to_do_with_mymodel(self):
+            pass
+        self.assertEquals('test_something_to_do_with_mymodel', test_something_to_do_with_mymodel.__name__)
     
     def test_headers_field_specified_on_model_is_added_to_the_query_manager(self):
         self.assertTrue(Simple.objects.headers != None)

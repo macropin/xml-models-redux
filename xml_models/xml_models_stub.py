@@ -90,6 +90,7 @@ def stub(model):
             finally:
                 model.objects = old
                 delattr(model, 'stub')
+        patched.__name__ = func.__name__
         return patched
         
     return wrapper
