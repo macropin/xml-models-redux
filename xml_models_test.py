@@ -43,7 +43,8 @@ class Address(Model):
 
     finders = { (number,): "http://address/number/%s",
                 (number, street): "http://address/number/%s/street/%s",
-                (city,): "http://localhost:8998/address/%s"
+                (city,): "http://localhost:8998/address/%s",
+                (street, 'stringfield'): "http://address/street/%s/stringfield/%s"
               }
 
 class MyModel(Model):
@@ -250,6 +251,18 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals("1st Ave. South", val.street)
         self.assertTrue(mock_get.called)
         self.assertEquals("http://address/number/bar/street/foo", mock_get.call_args[0][0])
+        
+    @patch_object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_accepting_strings_as_finder_keys(self, mock_get):
+        class t:
+            content = StringIO("<address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address>")
+            response_code = 200
+        mock_get.return_value = t()
+        val = Address.objects.get(street="foo", stringfield="bar")
+        self.assertEquals("1st Ave. South", val.street)
+        self.assertTrue(mock_get.called)
+        self.assertEquals("http://address/street/foo/stringfield/bar", mock_get.call_args[0][0])
+    
 
     @patch_object(rest_client.Client, "GET")
     def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_empty(self, mock_get):

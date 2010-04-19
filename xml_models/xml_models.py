@@ -214,7 +214,7 @@ class XmlModelManager(object):
         self.finders = {}
         self.headers = {}
         for key in finders.keys():
-            field_names = [field._name for field in key]
+            field_names = [field if isinstance(field, str) else field._name for field in key]
             sorted_field_names = list(field_names)
             sorted_field_names.sort()
             self.finders[tuple(sorted_field_names)] = (finders[key], field_names)
