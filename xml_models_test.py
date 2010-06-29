@@ -31,7 +31,7 @@ from xml_models import *
 from xml_models.xml_models_stub import stub
 import xml_models.xpath_twister as xpath
 import rest_client
-from mock import patch_object
+from mock import patch
 from StringIO import StringIO
 from stubserver import StubServer
 
@@ -213,7 +213,7 @@ class XmlModelsTest(unittest.TestCase):
         except NoRegisteredFinderError, e:
             self.assertTrue("foo" in str(e))
 
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
         class t:
             content = StringIO("<elems><root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root></elems>")
@@ -222,7 +222,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals(1, count)
         self.assertTrue(mock_get.called)
         
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_counts_child_nodes_when_filtering_a_collection_of_results(self, mock_get):
         class t:
             content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
@@ -231,7 +231,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals(2, count)
         self.assertTrue(mock_get.called)
         
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_getting_for_a_registered_finder(self, mock_get):
         class t:
             content = StringIO("<root><kiddie><value>Gonzo</value><address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address><address><number>5</number><street>Mockingbird Lane</street><city>Bedrock</city></address></kiddie></root>")
@@ -241,7 +241,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals("Gonzo", val.muppet_name)
         self.assertTrue(mock_get.called)
         
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_getting_for_a_multi_field_registered_finder(self, mock_get):
         class t:
             content = StringIO("<address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address>")
@@ -252,7 +252,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertTrue(mock_get.called)
         self.assertEquals("http://address/number/bar/street/foo", mock_get.call_args[0][0])
         
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_accepting_strings_as_finder_keys(self, mock_get):
         class t:
             content = StringIO("<address><number>10</number><street>1st Ave. South</street><city>MuppetVille</city></address>")
@@ -264,7 +264,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals("http://address/street/foo/stringfield/bar", mock_get.call_args[0][0])
     
 
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_empty(self, mock_get):
         class t:
             content = StringIO('')
@@ -276,7 +276,7 @@ class XmlModelsTest(unittest.TestCase):
         except DoesNotExist, e:    
             self.assertTrue("DoesNotExist" in str(e))
     
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_code_404(self, mock_get):
         class t:
             content = StringIO('<HTML><body>Nothing to see here</body></HTML>')
@@ -288,7 +288,7 @@ class XmlModelsTest(unittest.TestCase):
         except DoesNotExist, e:
             self.assertTrue("DoesNotExist" in str(e))
             
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_raises_validation_error_on_load_when_validation_test_fails(self, mock_get):
         class t:
             content = StringIO('<HTML><body>Nothing to see here</body></HTML>')
@@ -300,7 +300,7 @@ class XmlModelsTest(unittest.TestCase):
         except XmlValidationError, e:
             self.assertEquals("What, no muppet name?", str(e))
 
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_returns_iterator_for_collection_of_results(self, mock_get):
         class t:
             content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
@@ -313,7 +313,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals("hello", results[0].field1)
         self.assertEquals("goodbye", results[1].field1)
         
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_returns_iterator_for_collection_of_results_from_custom_query(self, mock_get):
         class t:
             content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
@@ -326,7 +326,7 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals("hello", results[0].field1)
         self.assertEquals("goodbye", results[1].field1)
 
-    @patch_object(rest_client.Client, "GET")
+    @patch.object(rest_client.Client, "GET")
     def test_manager_returns_count_of_collection_of_results_when_len_is_called(self, mock_get):
         class t:
             content = StringIO("<elems><root><field1>hello</field1></root><root><field1>goodbye</field1></root></elems>")
@@ -359,6 +359,17 @@ class XmlModelsTest(unittest.TestCase):
         def test_something_to_do_with_mymodel(self):
             pass
         self.assertEquals('test_something_to_do_with_mymodel', test_something_to_do_with_mymodel.__name__)
+        
+    @stub(MyModel)
+    def test_stub_allows_stubbing_to_raise_exception(self):
+        class SesameStreetCharacter(Exception):
+            pass
+        MyModel.stub().get(muppet_name='Big Bird').raises(SesameStreetCharacter)
+        try:
+            result = MyModel.objects.get(muppet_name='Big Bird')
+            self.fail("Stub should have raised exception")
+        except SesameStreetCharacter:
+            pass
     
     def test_headers_field_specified_on_model_is_added_to_the_query_manager(self):
         self.assertTrue(Simple.objects.headers != None)

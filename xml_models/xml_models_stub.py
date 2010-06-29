@@ -30,6 +30,8 @@ class XmlModelStubManager(object):
         
     def get(self, **kw):
         for exp in self._stubs:
+            if exp.args.get('exception'):
+                raise exp.args['exception']
             if exp.args == kw:
                 return exp.called()
         raise DoesNotExist(self.model, kw)
@@ -72,7 +74,8 @@ class Expectation(object):
         self.method = 'filter_custom'
         return self
         
-        
+    def raises(self, exception):
+        self.args['exception'] = exception
         
     def called(self):
         return self.result
