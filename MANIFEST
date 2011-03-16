@@ -7,4 +7,6 @@ xml_models/__init__.py
 xml_models/xml_models.py
 xml_models/xml_models_stub.py
 xml_models/xpath_twister.py
+json_models/json_models.py
+json_models/json_models_test.py
 xml_models_test.py

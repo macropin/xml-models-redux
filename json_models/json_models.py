@@ -30,8 +30,10 @@ import json, time
 from datetime import datetime
 
 class BaseField(object):
-    def __init__(self, field):
-        self.path = field
+    def __init__(self, **kw):
+        if not kw.has_key('path'):
+            raise Exception('No Path supplied for json field')
+        self.path = kw['path']
 
     def get_nested_value(self, data,nodes):
         node = nodes.pop(0)
@@ -64,6 +66,22 @@ class DateField(BaseField):
     def save(self,value):
         return value and (long)((time.mktime(value.utctimetuple()) - time.timezone) * 1000.0 + value.microsecond / 1000.0) or None
 
+class CollectionField(BaseField):
+    def __init__(self, field_type, order_by=None, **kw):
+        self.field_type = field_type
+        self.order_by = order_by
+        BaseField.__init__(self, **kw)
+
+    def parse(self, json_data):
+        matches = super(CollectionField, self).parse(json_data)
+
+        if not BaseField in self.field_type.__bases__:
+            results = [self.field_type(json=match) for match in matches]
+        else:
+            results = matches
+
+        return results
+
 class ModelBase(type):
     def __init__(cls, name, bases, attrs):
         fields = [field_name for field_name in attrs.keys() if isinstance(attrs[field_name], BaseField)]
@@ -76,8 +94,11 @@ class ModelBase(type):
 class Model:
     __metaclass__ = ModelBase
 
-    def __init__(self,json_data=None):
-        self._json = AttrDict(json.loads(json_data))
+    def __init__(self,json_data=None,**kw):
+        if kw.has_key('json'):
+            self._json = AttrDict(kw['json'])
+        else:
+            self._json = AttrDict(json.loads(json_data))
 
     def _parse_field(self, field):
         return field.parse(self._json)
