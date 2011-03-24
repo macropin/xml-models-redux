@@ -29,6 +29,7 @@ or implied, of the FreeBSD Project.
 import unittest
 from xml_models import *
 from common_models import *
+from xml_models.xml_models_stub import stub
 import xml_models.xpath_twister as xpath
 import rest_client
 from mock import patch
