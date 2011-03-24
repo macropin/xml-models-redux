@@ -29,6 +29,8 @@ or implied, of the FreeBSD Project.
 import json, time
 from datetime import datetime
 
+class NoRegisteredFinderError(Exception):
+    pass
 class BaseField(object):
     def __init__(self, **kw):
         if not kw.has_key('path'):
@@ -66,21 +68,24 @@ class DateField(BaseField):
     def save(self,value):
         return value and (long)((time.mktime(value.utctimetuple()) - time.timezone) * 1000.0 + value.microsecond / 1000.0) or None
 
-class CollectionField(BaseField):
+class Collection(BaseField):
     def __init__(self, field_type, order_by=None, **kw):
         self.field_type = field_type
         self.order_by = order_by
         BaseField.__init__(self, **kw)
 
     def parse(self, json_data):
-        matches = super(CollectionField, self).parse(json_data)
-
+        results = []
+        matches = super(Collection, self).parse(json_data)
         if not BaseField in self.field_type.__bases__:
             results = [self.field_type(json=match) for match in matches]
-        else:
+        elif matches:
             results = matches
-
+        if self.order_by:
+            results.sort(lambda a,b : cmp(getattr(a, self.order_by), getattr(b, self.order_by)))
         return results
+
+CollectionField = Collection
 
 class ModelBase(type):
     def __init__(cls, name, bases, attrs):
