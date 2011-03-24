@@ -1,7 +1,6 @@
-from xml_models import Model
 from common_models import NoRegisteredFinderError, DoesNotExist
 
-class XmlModelStubManager(object):
+class ModelStubManager(object):
     """Handles what can be queried for, and acts as the entry point for querying.  There is an instance per model that is used
     in the django style of Model.objects.get(attr1=value, attr2=value2) for single results, or 
     Model.objects.filter(attr1=value1,attr2=value2) for multiple results.  As with Django, you can chain filters together, i.e.
@@ -37,6 +36,8 @@ class XmlModelStubManager(object):
                 return exp.called()
         raise DoesNotExist(self.model, kw)
 
+XmlModelStubManager = ModelStubManager
+
 class Expectation(object):
 
     def __init__(self, model):
@@ -56,7 +57,7 @@ class Expectation(object):
                     setattr(item, key, value)
                 self.result.append(item)
         elif kw and self.method == 'get':
-            self.result = self.model(xml='<x/>')
+            self.result = self.model(None)
             for key, value in kw.items():
                 setattr(self.result, key, value)
         else:
@@ -87,7 +88,7 @@ def stub(model):
     def wrapper(func):
         def patched(*args, **keywargs):
             old = model.objects
-            model.objects = XmlModelStubManager(model, None)
+            model.objects = ModelStubManager(model, None)
             setattr(model, 'stub', model.objects._stub)
             try:
                 return func(*args, **keywargs)

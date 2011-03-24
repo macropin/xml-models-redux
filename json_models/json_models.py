@@ -113,7 +113,14 @@ class Model:
         if kw.has_key('json'):
             self._json = AttrDict(kw['json'])
         else:
-            self._json = AttrDict(json.loads(json_data))
+            try:
+                self._json = AttrDict(json.loads(json_data or '{}'))
+            except:
+                raise ValidationError("Invalid JSON")
+        self.validate_on_load()
+
+    def validate_on_load(self):
+        pass
 
     def _parse_field(self, field):
         return field.parse(self._json)

@@ -28,7 +28,36 @@ or implied, of the FreeBSD Project.
 
 import unittest, json
 from datetime import datetime
+from mock import patch
+from StringIO import StringIO
 from json_models import *
+from common_models import *
+
+class Address(Model):
+    number = IntField(path='number')
+    street = CharField(path='street')
+    city = CharField(path='city')
+    foobars = Collection(CharField, path='foobars')
+
+    finders = { (number,): "http://address/number/%s",
+            (number, street): "http://address/number/%s/street/%s",
+            (city,): "http://localhost:8998/address/%s",
+            (street, 'stringfield'): "http://address/street/%s/stringfield/%s"
+          }
+
+
+class MyModel(Model):
+    muppet_name = CharField(path='kiddie.value')
+    muppet_type = CharField(path='kiddie.type')
+    muppet_names = Collection(CharField, path='kiddie.names')
+    muppet_ages = Collection(IntField, path='kiddie.ages')
+    muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')
+
+    finders = {
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
+
+
 
 class JsonModelsTest(unittest.TestCase):
     def test_char_returns_value_for_item_passed_in(self):
@@ -147,29 +176,211 @@ class JsonModelsTest(unittest.TestCase):
         except NoRegisteredFinderError, e:
             self.assertTrue("foo" in str(e))
 
-class Address(Model):
-    number = IntField(path='number')
-    street = CharField(path='street')
-    city = CharField(path='city')
-    foobars = Collection(CharField, path='foobars')
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
+        class t:
+            content = StringIO('{"root": {"kiddie":{"value":"Gonzo", "address": [{ "number" : 10, "street": "1st Ave. South","city": "MuppetVille"},{"number":5,"street":"Mockingbird Lane","city": "Bedrock"}]}}}')
+        mock_get.return_value = t()
+        count = MyModel.objects.filter(muppet_name="baz").count()
+        self.assertEquals(1, count)
+        self.assertTrue(mock_get.called)
 
-    finders = { (number,): "http://address/number/%s",
-            (number, street): "http://address/number/%s/street/%s",
-            (city,): "http://localhost:8998/address/%s",
-            (street, 'stringfield'): "http://address/street/%s/stringfield/%s"
-          }
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_counts_child_nodes_when_filtering_a_collection_of_results(self, mock_get):
+        class t:
+            content = StringIO('{"field1": "hello"}\n{"field1": "goodbye"}')
+        mock_get.return_value = t()
+        count = Simple.objects.filter(field1="baz").count()
+        self.assertEquals(2, count)
+        self.assertTrue(mock_get.called)
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_when_getting_for_a_registered_finder(self, mock_get):
+        class t:
+            content = StringIO('{"kiddie":{"value": "Gonzo", "address": [{ "number" : 10, "street": "1st Ave. South","city": "MuppetVille"},{"number":5,"street":"Mockingbird Lane","city": "Bedrock"}]}}')
+            response_code = 200
+        mock_get.return_value = t()
+        val = MyModel.objects.get(muppet_name="baz")
+        self.assertEquals("Gonzo", val.muppet_name)
+        self.assertTrue(mock_get.called)
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_when_getting_for_a_multi_field_registered_finder(self, mock_get):
+        class t:
+            content = StringIO('{"number": 10, "street": "1st Ave. South", "city": "MuppetVille"}')
+            response_code = 200
+        mock_get.return_value = t()
+        val = Address.objects.get(street="foo", number="bar")
+        self.assertEquals("1st Ave. South", val.street)
+        self.assertTrue(mock_get.called)
+        self.assertEquals("http://address/number/bar/street/foo", mock_get.call_args[0][0])
 
 
-class MyModel(Model):
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_queries_rest_service_accepting_strings_as_finder_keys(self, mock_get):
+        class t:
+            content = StringIO('{"number": 10, "street": "1st Ave. South", "city": "MuppetVille"}')
+            response_code = 200
+        mock_get.return_value = t()
+        val = Address.objects.get(street="foo", stringfield="bar")
+        self.assertEquals("1st Ave. South", val.street)
+        self.assertTrue(mock_get.called)
+        self.assertEquals("http://address/street/foo/stringfield/bar", mock_get.call_args[0][0])
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_empty(self, mock_get):
+        class t:
+            content = StringIO('')
+            response_code = 200
+        mock_get.return_value = t()
+        try:
+            MyModel.objects.get(muppet_name="baz")
+            self.fail("Expected DoesNotExist")
+        except DoesNotExist, e:
+            self.assertTrue("DoesNotExist" in str(e))
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_raises_error_when_getting_for_a_registered_finder_and_repsonse_code_404(self, mock_get):
+        class t:
+            content = StringIO('<HTML><body>Nothing to see here</body></HTML>')
+            response_code = 404
+        mock_get.return_value = t()
+        try:
+            MyModel.objects.get(muppet_name="baz")
+            self.fail("Expected DoesNotExist")
+        except DoesNotExist, e:
+            self.assertTrue("DoesNotExist" in str(e))
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_raises_validation_error_on_load_when_validation_test_fails_given_bad_json(self, mock_get):
+        class t:
+            content = StringIO('<HTML><body>Nothing to see here</body></HTML>')
+            response_code = 200
+        mock_get.return_value = t()
+        try:
+            MyValidatingModel.objects.get(muppet_name="baz")
+            self.fail("Expected ValidationError")
+        except ValidationError, e:
+            self.assertEquals("Invalid JSON", str(e))
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_raises_validation_error_on_load_when_validation_test_fails_given_bad_data(self, mock_get):
+        class t:
+            content = StringIO('{"Weta":true}')
+            response_code = 200
+        mock_get.return_value = t()
+        try:
+            MyValidatingModel.objects.get(muppet_name="baz")
+            self.fail("Expected ValidationError")
+        except ValidationError, e:
+            self.assertEquals("What, no muppet name?", str(e))
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_returns_iterator_for_collection_of_results(self, mock_get):
+        class t:
+            content = StringIO('{"field1": "hello"}\n{"field1": "goodbye"}')
+        mock_get.return_value = t()
+        qry = Simple.objects.filter(field1="baz")
+        results = []
+        for mod in qry:
+            results.append(mod)
+        self.assertEquals(2, len(results))
+        self.assertEquals("hello", results[0].field1)
+        self.assertEquals("goodbye", results[1].field1)
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_returns_iterator_for_collection_of_results_from_custom_query(self, mock_get):
+        class t:
+            content = StringIO('{"field1": "hello"}\n{"field1": "goodbye"}')
+        mock_get.return_value = t()
+        qry = SimpleWithoutFinder.objects.filter_custom("http://hard_coded_url")
+        results = []
+        for mod in qry:
+            results.append(mod)
+        self.assertEquals(2, len(results))
+        self.assertEquals("hello", results[0].field1)
+        self.assertEquals("goodbye", results[1].field1)
+
+    @patch.object(rest_client.Client, "GET")
+    def test_manager_returns_count_of_collection_of_results_when_len_is_called(self, mock_get):
+        class t:
+            content = StringIO('{"field1": "hello"}\n{"field1": "goodbye"}')
+        mock_get.return_value = t()
+        qry = Simple.objects.filter(field1="baz")
+        self.assertEquals(2, len(qry))
+
+    @stub(MyModel)
+    def test_stub_allows_stubbing_return_values_for_queries(self):
+        MyModel.stub().get(muppet_name='Kermit').returns(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle'])
+        result = MyModel.objects.get(muppet_name='Kermit')
+        self.assertEquals('toad', result.muppet_type)
+
+    @stub(MyModel)
+    def test_stub_allows_stubbing_filter_requests(self):
+        MyModel.stub().filter(muppet_name='Kermit').returns(dict(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle']))
+        result = MyModel.objects.filter(muppet_name='Kermit')
+        self.assertEquals(1, len(result))
+        self.assertEquals('toad',list(result)[0].muppet_type)
+
+    @stub(MyModel)
+    def test_stub_allows_stubbing_filter_custom_requests(self):
+        MyModel.stub().filter_custom('http://anyurl.com').returns(dict(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle']))
+        result = MyModel.objects.filter_custom('http://anyurl.com')
+        self.assertEquals(1, len(result))
+        self.assertEquals('toad',list(result)[0].muppet_type)
+
+    def test_stub_allows_stubbing(self):
+        @stub('MyModel')
+        def test_something_to_do_with_mymodel(self):
+            pass
+        self.assertEquals('test_something_to_do_with_mymodel', test_something_to_do_with_mymodel.__name__)
+
+    @stub(MyModel)
+    def test_stub_allows_stubbing_to_raise_exception(self):
+        class SesameStreetCharacter(Exception):
+            pass
+        MyModel.stub().get(muppet_name='Big Bird').raises(SesameStreetCharacter)
+        try:
+            result = MyModel.objects.get(muppet_name='Big Bird')
+            self.fail("Stub should have raised exception")
+        except SesameStreetCharacter:
+            pass
+
+    def test_headers_field_specified_on_model_is_added_to_the_query_manager(self):
+        self.assertTrue(Simple.objects.headers != None)
+        self.assertEquals('user1', Simple.objects.headers['user'])
+        query = Simple.objects.filter(field1="Rhubarb")
+        self.assertTrue(query.headers != None)
+        self.assertEquals('pwd1', query.headers['password'])
+
+
+class Simple(Model):
+    field1 = CharField(path='field1')
+    
+    finders = {
+               (field1,): "http://foo.com/simple/%s"
+              }
+    headers = {'user': 'user1', 'password': 'pwd1'}
+
+class SimpleWithoutFinder(Model):
+    field1 = CharField(path='field1')
+
+class MyValidatingModel(Model):
     muppet_name = CharField(path='kiddie.value')
     muppet_type = CharField(path='kiddie.type')
     muppet_names = Collection(CharField, path='kiddie.names')
     muppet_ages = Collection(IntField, path='kiddie.ages')
     muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')
 
+    def validate_on_load(self):
+        if not self.muppet_name:
+            raise ValidationError("What, no muppet name?")
+
     finders = {
                 (muppet_name,): "http://foo.com/muppets/%s"
               }
 
+
 if __name__=='__main__':
     unittest.main()
+

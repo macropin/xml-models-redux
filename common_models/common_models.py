@@ -37,6 +37,12 @@ class ModelQuery(object):
         self.model = model
         self.args = {}
         self.headers = headers
+        if 'xml_models' in str(model.__class__):
+            self._fragments = self._xml_fragments
+        elif 'json_models' in str(model.__class__):
+            self._fragments = self._json_fragments
+        else:
+            raise NonSupportedModelError
 
     def filter(self, **kw):
         for key in kw.keys():
@@ -56,8 +62,8 @@ class ModelQuery(object):
 
     def __iter__(self):
         response = rest_client.Client("").GET(self._find_query_path(), headers=self.headers)
-        for x in self._fragments(response.content):
-            yield self.model(xml=x)
+        for fragment in self._fragments(response.content):
+            yield self.model(fragment)
 
     def __len__(self):
         return self.count()
@@ -73,9 +79,9 @@ class ModelQuery(object):
         content = response.content.read()
         if not content:
             raise DoesNotExist(self.model, self.args)
-        return self.model(xml=content)
+        return self.model(content)
 
-    def _fragments(self, xml):
+    def _xml_fragments(self, xml):
         tree = et.iterparse(xml, ['start','end'])
         tree.next()
         evt, child = tree.next()
@@ -85,6 +91,10 @@ class ModelQuery(object):
                 result = et.tostring(elem)
                 elem.clear()
                 yield result
+
+    def _json_fragments(self, json):
+        for result in json.readlines():
+            yield result
 
     def _find_query_path(self):
         if hasattr(self, 'custom_url'):
@@ -99,6 +109,12 @@ class ModelQuery(object):
             raise NoRegisteredFinderError(str(key_tuple))
 
 class NoRegisteredFinderError(Exception):
+    pass
+
+class NonSupportedModelError(Exception):
+    pass
+
+class ValidationError(Exception):
     pass
 
 class DoesNotExist(Exception):

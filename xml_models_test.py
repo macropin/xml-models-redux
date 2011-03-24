@@ -29,7 +29,6 @@ or implied, of the FreeBSD Project.
 import unittest
 from xml_models import *
 from common_models import *
-from xml_models.xml_models_stub import stub
 import xml_models.xpath_twister as xpath
 import rest_client
 from mock import patch
@@ -355,12 +354,12 @@ class XmlModelsTest(unittest.TestCase):
         self.assertEquals(1, len(result))
         self.assertEquals('toad',list(result)[0].muppet_type)
         
-    def test_stub_allows_stubbing_filter_custom_requests(self):
+    def test_stub_allows_stubbing(self):
         @stub('MyModel')
         def test_something_to_do_with_mymodel(self):
             pass
         self.assertEquals('test_something_to_do_with_mymodel', test_something_to_do_with_mymodel.__name__)
-        
+
     @stub(MyModel)
     def test_stub_allows_stubbing_to_raise_exception(self):
         class SesameStreetCharacter(Exception):
