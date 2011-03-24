@@ -193,8 +193,8 @@ class ModelBase(type):
     def _get_xpath(cls, field_name, field_impl):
         return property(fget=lambda cls: cls._parse_field(field_impl), fset=lambda cls, value : cls._set_value(field_impl, value))
 
-XMLModelManager = ModelManager
-
+XmlModelManager = ModelManager
+XmlModelQuery = ModelQuery
 
 
 class Model:
