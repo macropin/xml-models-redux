@@ -226,7 +226,7 @@ class Model:
     def _get_xml(self):
         if self._dom is None:
             try :
-                self._dom = xpath.domify(self._xml)
+                self._dom = xpath.domify(self._xml or '<x/>')
             except Exception, e:
                 print self._xml
                 print str(e)

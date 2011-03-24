@@ -214,6 +214,10 @@ class XmlModelsTest(unittest.TestCase):
         except NoRegisteredFinderError, e:
             self.assertTrue("foo" in str(e))
 
+    def test_should_handle_models_with_no_data(self):
+        my_model = MyModel()
+        my_model.muppet_name
+
     @patch.object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
         class t:
@@ -371,7 +375,7 @@ class XmlModelsTest(unittest.TestCase):
             self.fail("Stub should have raised exception")
         except SesameStreetCharacter:
             pass
-    
+
     def test_headers_field_specified_on_model_is_added_to_the_query_manager(self):
         self.assertTrue(Simple.objects.headers != None)
         self.assertEquals('user1', Simple.objects.headers['user'])

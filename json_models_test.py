@@ -134,7 +134,6 @@ class JsonModelsTest(unittest.TestCase):
         self.assertEquals('foo', address2.foobars[0])
         self.assertEquals('bar', address2.foobars[1])
 
-
     def test_collection_orders_by_supplied_attribute_of_user_model_types(self):
         my_model = MyModel('{"kiddie":{ "address": [{"number" :10,"street": "1st Ave. South", "city": "MuppetVille", "foobars" : ["foo","bar"]},{"number": 5, "street": "Mockingbird Lane", "city": "Bedrock"}]}}')
         self.assertEquals(2,len(my_model.muppet_addresses))
@@ -162,7 +161,6 @@ class JsonModelsTest(unittest.TestCase):
         my_model.opened = None
         self.assertEquals(None, my_model.opened)
 
-
     def test_collection_fields_can_be_appended_to(self):
         my_model = MyModel('{"kiddie":{"names": ["Kermit"]}}')
         my_model.muppet_names.append("Fozzie")
@@ -175,6 +173,10 @@ class JsonModelsTest(unittest.TestCase):
             self.fail("expected NoRegisteredFinderError")
         except NoRegisteredFinderError, e:
             self.assertTrue("foo" in str(e))
+
+    def test_should_handle_models_with_no_data(self):
+        my_model = MyModel()
+        my_model.muppet_name
 
     @patch.object(rest_client.Client, "GET")
     def test_manager_queries_rest_service_when_filtering_for_a_registered_finder(self, mock_get):
