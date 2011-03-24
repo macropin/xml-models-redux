@@ -140,6 +140,12 @@ class JsonModelsTest(unittest.TestCase):
         self.assertTrue('Kermit' in my_model.muppet_names)
         self.assertTrue('Fozzie' in my_model.muppet_names)
 
+    def test_manager_noregisteredfindererror_raised_when_filter_on_non_existent_field(self):
+        try:
+            MyModel.objects.filter(foo="bar").count()
+            self.fail("expected NoRegisteredFinderError")
+        except NoRegisteredFinderError, e:
+            self.assertTrue("foo" in str(e))
 
 class Address(Model):
     number = IntField(path='number')
@@ -147,12 +153,23 @@ class Address(Model):
     city = CharField(path='city')
     foobars = Collection(CharField, path='foobars')
 
+    finders = { (number,): "http://address/number/%s",
+            (number, street): "http://address/number/%s/street/%s",
+            (city,): "http://localhost:8998/address/%s",
+            (street, 'stringfield'): "http://address/street/%s/stringfield/%s"
+          }
+
+
 class MyModel(Model):
     muppet_name = CharField(path='kiddie.value')
     muppet_type = CharField(path='kiddie.type')
     muppet_names = Collection(CharField, path='kiddie.names')
     muppet_ages = Collection(IntField, path='kiddie.ages')
     muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')
+
+    finders = {
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
 
 if __name__=='__main__':
     unittest.main()

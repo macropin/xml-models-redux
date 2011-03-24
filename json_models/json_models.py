@@ -28,10 +28,10 @@ or implied, of the FreeBSD Project.
 
 import json, time
 from datetime import datetime
+from common_models import *
 
-class NoRegisteredFinderError(Exception):
-    pass
-class BaseField(object):
+
+class BaseField:
     def __init__(self, **kw):
         if not kw.has_key('path'):
             raise Exception('No Path supplied for json field')
@@ -44,7 +44,7 @@ class BaseField(object):
         else:
             return getattr(data,node)
 
-    def parse(self, json_data):
+    def _parse(self, json_data):
         nodes = self.path.split('.')
         return self.get_nested_value(json_data, nodes)
 
@@ -52,17 +52,20 @@ class BaseField(object):
         return value
 
 class CharField(BaseField):
-    pass
+    def parse(self, json_data):
+        return self._parse(json_data)
 
 class IntField(BaseField):
-    pass
+    def parse(self, json_data):
+        return self._parse(json_data)
 
 class BoolField(BaseField):
-    pass
+    def parse(self, json_data):
+        return self._parse(json_data)
 
 class DateField(BaseField):
     def parse(self, json_data):
-        microseconds_from_epoch = super(DateField, self).parse(json_data)
+        microseconds_from_epoch = self._parse(json_data)
         return microseconds_from_epoch and datetime.utcfromtimestamp(microseconds_from_epoch / 1000.0) or None
 
     def save(self,value):
@@ -76,7 +79,7 @@ class Collection(BaseField):
 
     def parse(self, json_data):
         results = []
-        matches = super(Collection, self).parse(json_data)
+        matches = self._parse(json_data)
         if not BaseField in self.field_type.__bases__:
             results = [self.field_type(json=match) for match in matches]
         elif matches:
@@ -92,6 +95,13 @@ class ModelBase(type):
         fields = [field_name for field_name in attrs.keys() if isinstance(attrs[field_name], BaseField)]
         for field_name in fields:
             setattr(cls, field_name, cls._get_path(field_name, attrs[field_name]))
+            attrs[field_name]._name = field_name
+        if attrs.has_key("finders"):
+            setattr(cls, "objects", ModelManager(cls, attrs["finders"]))
+        else:
+            setattr(cls, "objects", ModelManager(cls, {}))
+        if attrs.has_key("headers"):
+            setattr(cls.objects, "headers", attrs["headers"])
 
     def _get_path(cls, field_name, field_impl):
         return property(fget=lambda cls: cls._parse_field(field_impl),fset=lambda cls, value : cls._set_field(field_impl, value) )

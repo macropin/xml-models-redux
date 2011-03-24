@@ -1,4 +1,5 @@
-from xml_models import Model, NoRegisteredFinderError, DoesNotExist
+from xml_models import Model
+from common_models import NoRegisteredFinderError, DoesNotExist
 
 class XmlModelStubManager(object):
     """Handles what can be queried for, and acts as the entry point for querying.  There is an instance per model that is used
