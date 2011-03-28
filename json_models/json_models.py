@@ -38,12 +38,16 @@ class BaseField:
         self.path = kw['path']
         self._default = kw.pop('default', None)
 
-    def get_nested_value(self, data,nodes):
+    def get_nested_value(self, data, nodes):
         node = nodes.pop(0)
         if len(nodes) > 0:
-            return self.get_nested_value(getattr(data, node, default=self._default),nodes)
+            find = self.get_nested_value(getattr(data, node),nodes)
         else:
-            return getattr(data, node, default=self._default)
+            find = getattr(data, node)
+        if ((find == None) or (find == {})):
+            return self._default
+        else:
+            return find
 
     def _parse(self, json_data):
         nodes = self.path.split('.')
