@@ -106,6 +106,17 @@ class JsonModelsTest(unittest.TestCase):
         response = field.parse(json_data)
         self.assertFalse(response)
 
+    def test_can_retrieve_attribute_value_from_xml_model(self):
+        my_model = MyModel('{"kiddie":{"value":"Rowlf"}}')
+        self.assertEquals('Rowlf', my_model.muppet_name)
+
+    def test_returns_none_if_non_required_attribute_not_in_xml_and_no_default(self):
+        my_model = MyModel('{"kiddie":{"valuefoo":"Rowlf"}}')
+        self.assertEquals(None, my_model.muppet_name)
+
+    def test_returns_default_if_non_required_attribute_not_in_xml_and_default_specified(self):
+        my_model = MyModel('{"kiddie":{"value":"Rowlf"}}')
+        self.assertEquals('frog', my_model.muppet_type)
 
     def test_collection_returns_expected_number_of_correcty_typed_results(self):
         my_model = MyModel('{"kiddie":{"names": ["Rowlf","Kermit","Ms.Piggy"]}}')
@@ -369,7 +380,7 @@ class SimpleWithoutFinder(Model):
 
 class MyValidatingModel(Model):
     muppet_name = CharField(path='kiddie.value')
-    muppet_type = CharField(path='kiddie.type')
+    muppet_type = CharField(path='kiddie.type', default='frog')
     muppet_names = Collection(CharField, path='kiddie.names')
     muppet_ages = Collection(IntField, path='kiddie.ages')
     muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')

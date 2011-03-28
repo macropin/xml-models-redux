@@ -36,13 +36,14 @@ class BaseField:
         if not kw.has_key('path'):
             raise Exception('No Path supplied for json field')
         self.path = kw['path']
+        self._default = kw.pop('default', None)
 
     def get_nested_value(self, data,nodes):
         node = nodes.pop(0)
         if len(nodes) > 0:
-            return self.get_nested_value(getattr(data,node),nodes)
+            return self.get_nested_value(getattr(data, node, default=self._default),nodes)
         else:
-            return getattr(data,node)
+            return getattr(data, node, default=self._default)
 
     def _parse(self, json_data):
         nodes = self.path.split('.')
