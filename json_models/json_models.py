@@ -86,7 +86,12 @@ class Collection(BaseField):
         results = []
         matches = self._parse(json_data)
         if not BaseField in self.field_type.__bases__:
-            results = [self.field_type(json=match) for match in matches]
+            results = []
+            for match in matches:
+                if isinstance(match, Model):
+                    results.append(self.field_type(json=match._json))
+                else:
+                    results.append(self.field_type(json=match))
         elif matches:
             results = matches
         if self.order_by:

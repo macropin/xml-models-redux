@@ -49,6 +49,8 @@ class Address(Model):
 class MyModel(Model):
     muppet_name = CharField(path='kiddie.value')
     muppet_type = CharField(path='kiddie.type', default='frog')
+    muppet_hair = CharField(path='kiddie.looks.head.hair', default='fuzzy')
+    muppet_nose = CharField(path='kiddie.looks.head.nose')
     muppet_names = Collection(CharField, path='kiddie.names')
     muppet_ages = Collection(IntField, path='kiddie.ages')
     muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')
@@ -117,6 +119,15 @@ class JsonModelsTest(unittest.TestCase):
     def test_returns_default_if_non_required_attribute_not_in_json_and_default_specified(self):
         my_model = MyModel('{"kiddie":{"value":"Rowlf"}}')
         self.assertEquals('frog', my_model.muppet_type)
+
+    def test_returns_none_if_non_required_nested_attribute_not_in_json_and_no_default(self):
+        my_model = MyModel('{"kiddie":{"valuefoo":"Rowlf"}}')
+        self.assertEquals(None, my_model.muppet_nose)
+
+    def test_returns_default_if_non_required_nested_attribute_not_in_json_and_default_specified(self):
+        my_model = MyModel('{"kiddie":{"value":"Rowlf"}}')
+        self.assertEquals('fuzzy', my_model.muppet_hair)
+
 
     def test_collection_returns_expected_number_of_correcty_typed_results(self):
         my_model = MyModel('{"kiddie":{"names": ["Rowlf","Kermit","Ms.Piggy"]}}')
@@ -324,9 +335,16 @@ class JsonModelsTest(unittest.TestCase):
 
     @stub(MyModel)
     def test_stub_allows_stubbing_return_values_for_queries(self):
-        MyModel.stub().get(muppet_name='Kermit').returns(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle'])
+        address1 = Address()
+        address1.number = 123
+        address1.street = 'Sesame St.'
+        address1.city = 'New York'
+        address1.foobars = ['foo','bar']
+        MyModel.stub().get(muppet_name='Kermit').returns(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle'], muppet_addresses=[address1])
         result = MyModel.objects.get(muppet_name='Kermit')
         self.assertEquals('toad', result.muppet_type)
+        self.assertEqual(123, result.muppet_addresses[0].number)
+        self.assertEqual('foo', result.muppet_addresses[0].foobars[0])
 
     @stub(MyModel)
     def test_stub_allows_stubbing_filter_requests(self):
