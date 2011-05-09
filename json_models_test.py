@@ -59,6 +59,32 @@ class MyModel(Model):
                 (muppet_name,): "http://foo.com/muppets/%s"
               }
 
+class Simple(Model):
+    field1 = CharField(path='field1')
+
+    finders = {
+               (field1,): "http://foo.com/simple/%s"
+              }
+    headers = {'user': 'user1', 'password': 'pwd1'}
+
+class SimpleWithoutFinder(Model):
+    field1 = CharField(path='field1')
+
+class MyValidatingModel(Model):
+    muppet_name = CharField(path='kiddie.value')
+    muppet_type = CharField(path='kiddie.type', default='frog')
+    muppet_names = Collection(CharField, path='kiddie.names')
+    muppet_ages = Collection(IntField, path='kiddie.ages')
+    muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')
+
+    def validate_on_load(self):
+        if not self.muppet_name:
+            raise ValidationError("What, no muppet name?")
+
+    finders = {
+                (muppet_name,): "http://foo.com/muppets/%s"
+              }
+    
 
 
 class JsonModelsTest(unittest.TestCase):
@@ -346,6 +372,16 @@ class JsonModelsTest(unittest.TestCase):
         self.assertEqual(123, result.muppet_addresses[0].number)
         self.assertEqual('foo', result.muppet_addresses[0].foobars[0])
 
+    @stub(MyValidatingModel)
+    def test_stub_allows_validation_to_pass_stubbing_return_values_for_queries(self):
+        try:
+            MyValidatingModel.stub().get(muppet_name='Kermit').returns(muppet_name='Kermit')
+            result = MyValidatingModel.objects.get(muppet_name='Kermit')
+            self.assertTrue('Kermit', result.muppet_name)
+        except Exception as e:
+            self.fail(e.message)
+
+
     @stub(MyModel)
     def test_stub_allows_stubbing_filter_requests(self):
         MyModel.stub().filter(muppet_name='Kermit').returns(dict(muppet_name='Kermit', muppet_type='toad', muppet_names=['Trevor', 'Kyle']))
@@ -366,6 +402,8 @@ class JsonModelsTest(unittest.TestCase):
             pass
         self.assertEquals('test_something_to_do_with_mymodel', test_something_to_do_with_mymodel.__name__)
 
+
+
     @stub(MyModel)
     def test_stub_allows_stubbing_to_raise_exception(self):
         class SesameStreetCharacter(Exception):
@@ -383,34 +421,6 @@ class JsonModelsTest(unittest.TestCase):
         query = Simple.objects.filter(field1="Rhubarb")
         self.assertTrue(query.headers != None)
         self.assertEquals('pwd1', query.headers['password'])
-
-
-class Simple(Model):
-    field1 = CharField(path='field1')
-    
-    finders = {
-               (field1,): "http://foo.com/simple/%s"
-              }
-    headers = {'user': 'user1', 'password': 'pwd1'}
-
-class SimpleWithoutFinder(Model):
-    field1 = CharField(path='field1')
-
-class MyValidatingModel(Model):
-    muppet_name = CharField(path='kiddie.value')
-    muppet_type = CharField(path='kiddie.type', default='frog')
-    muppet_names = Collection(CharField, path='kiddie.names')
-    muppet_ages = Collection(IntField, path='kiddie.ages')
-    muppet_addresses = Collection(Address, path='kiddie.address', order_by='number')
-
-    def validate_on_load(self):
-        if not self.muppet_name:
-            raise ValidationError("What, no muppet name?")
-
-    finders = {
-                (muppet_name,): "http://foo.com/muppets/%s"
-              }
-
 
 if __name__=='__main__':
     unittest.main()

@@ -57,6 +57,9 @@ class Expectation(object):
                     setattr(item, key, value)
                 self.result.append(item)
         elif kw and self.method == 'get':
+            def do_not(self):
+                pass
+            self.model.validate_on_load = do_not
             self.result = self.model(None)
             for key, value in kw.items():
                 setattr(self.result, key, value)
