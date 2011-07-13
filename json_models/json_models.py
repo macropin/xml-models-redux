@@ -70,8 +70,8 @@ class BoolField(BaseField):
 
 class DateField(BaseField):
     def parse(self, json_data):
-        microseconds_from_epoch = self._parse(json_data)
-        return microseconds_from_epoch and datetime.utcfromtimestamp(microseconds_from_epoch / 1000.0) or None
+        milliseconds_from_epoch = self._parse(json_data)
+        return milliseconds_from_epoch and datetime.utcfromtimestamp(milliseconds_from_epoch / 1000.0) or None
 
     def save(self,value):
         return value and (long)((time.mktime(value.utctimetuple()) - time.timezone) * 1000.0 + value.microsecond / 1000.0) or None
